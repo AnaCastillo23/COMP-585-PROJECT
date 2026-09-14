@@ -1,0 +1,44 @@
+body {
+  margin: 0;
+}
+
+.site-header {
+  align-items: center;
+  background: #173f35;
+  color: #ffffff;
+  display: flex;
+  justify-content: space-between;
+  padding: 1rem 8%;
+}
+
+.brand,
+.site-header a {
+  color: inherit;
+}
+
+.brand {
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+nav {
+  display: flex;
+  gap: 1.25rem;
+}
+
+nav a {
+  text-underline-offset: 0.2em;
+}
+
+.page-content {
+  margin: 0 auto;
+  max-width: 70rem;
+  padding: 5rem 8%;
+}
+
+h1 {
+  font-size: clamp(2.5rem, 7vw, 5rem);
+  line-height: 1;
+  margin: 0 0 1rem;
+}
