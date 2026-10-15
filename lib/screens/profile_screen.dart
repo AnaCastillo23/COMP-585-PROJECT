@@ -15,7 +15,6 @@ class ProfileScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Profile', style: Theme.of(context).textTheme.headlineMedium),
           const SizedBox(height: 20),
           Container(
             constraints: const BoxConstraints(maxWidth: 680),
@@ -43,13 +42,13 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${role.label} account',
+                  role.label,
                   style: const TextStyle(color: AppColors.muted),
                 ),
                 const SizedBox(height: 24),
                 const ListTile(
                   leading: Icon(Icons.email_outlined),
-                  title: Text('University email'),
+                  title: Text('University Email'),
                   subtitle: Text('mehrdad@my.csun.edu'),
                 ),
                 const Divider(),

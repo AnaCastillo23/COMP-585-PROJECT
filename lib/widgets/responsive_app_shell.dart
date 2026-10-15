@@ -124,11 +124,7 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
           Expanded(
             child: Column(
               children: [
-                _TopBar(
-                  pageTitle: _destinations[_selectedIndex].label,
-                  role: _role,
-                  onAccountAction: _handleAccountAction,
-                ),
+                _TopBar(role: _role, onAccountAction: _handleAccountAction),
                 Expanded(child: _selectedScreen),
               ],
             ),
@@ -158,16 +154,7 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
                 ),
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                _destinations[_selectedIndex].label,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 18,
-                ),
-              ),
-            ),
+            const Spacer(),
           ],
         ),
         actions: [
@@ -335,13 +322,8 @@ class _SidebarItem extends StatelessWidget {
 }
 
 class _TopBar extends StatelessWidget {
-  const _TopBar({
-    required this.pageTitle,
-    required this.role,
-    required this.onAccountAction,
-  });
+  const _TopBar({required this.role, required this.onAccountAction});
 
-  final String pageTitle;
   final UserRole role;
   final ValueChanged<String> onAccountAction;
 
@@ -356,12 +338,7 @@ class _TopBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Expanded(
-            child: Text(
-              pageTitle,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-          ),
+          const Spacer(),
           IconButton(
             onPressed: () {},
             tooltip: 'Notifications',
