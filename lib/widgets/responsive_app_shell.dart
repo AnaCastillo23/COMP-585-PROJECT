@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../core/theme/app_theme.dart';
 import '../models/user_role.dart';
@@ -93,11 +94,16 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
     });
   }
 
+  Future<void> _signOut() async {
+    await FirebaseAuth.instance.signOut();
+    widget.onSignOut();
+  }
+
   void _handleAccountAction(String action) {
     if (action == 'switch-role') {
       _switchRole();
     } else if (action == 'sign-out') {
-      widget.onSignOut();
+      _signOut();
     }
   }
 
@@ -119,7 +125,7 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
             destinations: _destinations,
             selectedIndex: _selectedIndex,
             onSelected: (index) => setState(() => _selectedIndex = index),
-            onSignOut: widget.onSignOut,
+            onSignOut: _signOut,
           ),
           Expanded(
             child: Column(
