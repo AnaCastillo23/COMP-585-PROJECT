@@ -6,10 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../models/user_role.dart';
 
 class StaffLoginScreen extends StatefulWidget {
-  const StaffLoginScreen({
-    super.key,
-    required this.onContinue,
-  });
+  const StaffLoginScreen({super.key, required this.onContinue});
 
   final ValueChanged<UserRole> onContinue;
 
@@ -65,20 +62,17 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
             _errorMessage = 'This account has been disabled.';
             break;
           case 'network-request-failed':
-            _errorMessage =
-                'Check your internet connection and try again.';
+            _errorMessage = 'Check your internet connection and try again.';
             break;
           default:
-            _errorMessage =
-                error.message ?? 'Staff sign-in failed.';
+            _errorMessage = error.message ?? 'Staff sign-in failed.';
         }
       });
     } catch (_) {
       if (!mounted) return;
 
       setState(() {
-        _errorMessage =
-            'Unable to verify staff access. Please try again.';
+        _errorMessage = 'Unable to verify staff access. Please try again.';
       });
     } finally {
       if (mounted) {
@@ -89,8 +83,7 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
 
   /// Firebase sign-in, then require role == 'staff' in Firestore.
   Future<void> _signInFirebase() async {
-    final credential =
-        await FirebaseAuth.instance.signInWithEmailAndPassword(
+    final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
       email: _emailController.text.trim(),
       password: _passwordController.text,
     );
@@ -184,10 +177,7 @@ class _BrandPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 10,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             color: Colors.white,
             child: const Text(
               'CSUN',
@@ -214,11 +204,7 @@ class _BrandPanel extends StatelessWidget {
             const Text(
               'Manage university equipment and help students '
               'keep their projects moving.',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 17,
-                height: 1.5,
-              ),
+              style: TextStyle(color: Colors.white, fontSize: 17, height: 1.5),
             ),
           ],
         ],
@@ -262,9 +248,7 @@ class _StaffLoginPanel extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 TextButton.icon(
-                  onPressed: loading
-                      ? null
-                      : () => Navigator.maybePop(context),
+                  onPressed: loading ? null : () => Navigator.maybePop(context),
                   style: TextButton.styleFrom(
                     alignment: Alignment.centerLeft,
                     padding: EdgeInsets.zero,
@@ -280,10 +264,7 @@ class _StaffLoginPanel extends StatelessWidget {
                 const SizedBox(height: 8),
                 const Text(
                   'Sign in with your authorized staff account.',
-                  style: TextStyle(
-                    color: AppColors.muted,
-                    fontSize: 15,
-                  ),
+                  style: TextStyle(color: AppColors.muted, fontSize: 15),
                 ),
                 const SizedBox(height: 28),
                 TextFormField(
@@ -318,9 +299,7 @@ class _StaffLoginPanel extends StatelessWidget {
                     labelText: 'Password',
                     prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
-                      tooltip: hidePassword
-                          ? 'Show password'
-                          : 'Hide password',
+                      tooltip: hidePassword ? 'Show password' : 'Hide password',
                       icon: Icon(
                         hidePassword
                             ? Icons.visibility_outlined
@@ -340,27 +319,25 @@ class _StaffLoginPanel extends StatelessWidget {
                   const SizedBox(height: 14),
                   Text(
                     errorMessage!,
-                    style: const TextStyle(
-                      color: Colors.red,
-                      fontSize: 14,
-                    ),
+                    style: const TextStyle(color: Colors.red, fontSize: 14),
                   ),
                 ],
                 const SizedBox(height: 20),
                 FilledButton(
                   onPressed: loading ? null : onSignIn,
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: loading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Text('Sign in as staff'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
                   ),
+                  child: loading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Sign in'),
                 ),
               ],
             ),
