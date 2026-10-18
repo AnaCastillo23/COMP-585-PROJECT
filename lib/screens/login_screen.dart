@@ -133,11 +133,10 @@ class _LoginPanelState extends State<_LoginPanel> {
     });
 
     try {
-      final credential =
-        await FirebaseAuth.instance.signInWithEmailAndPassword(
-      email: _emailController.text.trim(),
-      password: _passwordController.text,
-    );
+      final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
 
       final user = credential.user;
 
@@ -158,8 +157,7 @@ class _LoginPanelState extends State<_LoginPanel> {
         if (!mounted) return;
 
         setState(() {
-          _errorMessage =
-              'This account is not registered as a student.';
+          _errorMessage = 'This account is not registered as a student.';
         });
         return;
       }
@@ -188,8 +186,7 @@ class _LoginPanelState extends State<_LoginPanel> {
       if (!mounted) return;
 
       setState(() {
-        _errorMessage =
-            'Something went wrong. Please try again.';
+        _errorMessage = 'Something went wrong. Please try again.';
       });
     } finally {
       if (mounted) {
@@ -220,10 +217,7 @@ class _LoginPanelState extends State<_LoginPanel> {
                 const SizedBox(height: 8),
                 const Text(
                   'Sign in with your university account to continue.',
-                  style: TextStyle(
-                    color: AppColors.muted,
-                    fontSize: 15,
-                  ),
+                  style: TextStyle(color: AppColors.muted, fontSize: 15),
                 ),
                 const SizedBox(height: 28),
                 TextFormField(
@@ -283,22 +277,30 @@ class _LoginPanelState extends State<_LoginPanel> {
                   const SizedBox(height: 14),
                   Text(
                     _errorMessage!,
-                    style: const TextStyle(
-                      color: Colors.red,
-                      fontSize: 14,
-                    ),
+                    style: const TextStyle(color: Colors.red, fontSize: 14),
                   ),
                 ],
                 const SizedBox(height: 20),
-                FilledButton(
+                FilledButton.icon(
                   onPressed: _isLoading ? null : _signInStudent,
-                  child: _isLoading
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 14,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                  icon: _isLoading
                       ? const SizedBox(
                           height: 20,
                           width: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Sign in as student'),
+                      : const Icon(Icons.school_outlined),
+                  label: const Text('Sign in as student'),
                 ),
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
@@ -314,6 +316,16 @@ class _LoginPanelState extends State<_LoginPanel> {
                             ),
                           );
                         },
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 14,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
                   icon: const Icon(Icons.badge_outlined),
                   label: const Text('Sign in as staff'),
                 ),
