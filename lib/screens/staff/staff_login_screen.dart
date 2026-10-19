@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/navigation/slide_page_route.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/user_role.dart';
 
@@ -118,7 +119,7 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -137,12 +138,12 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
               },
               onSignIn: _signIn,
             );
-
+            final animatedFormPanel = SlideFormPanel(child: formPanel);
             if (isWide) {
               return Row(
                 children: [
                   Expanded(flex: 5, child: brandPanel),
-                  Expanded(flex: 6, child: formPanel),
+                  Expanded(flex: 6, child: animatedFormPanel),
                 ],
               );
             }
@@ -151,7 +152,7 @@ class _StaffLoginScreenState extends State<StaffLoginScreen> {
               child: Column(
                 children: [
                   SizedBox(height: 220, child: brandPanel),
-                  formPanel,
+                  animatedFormPanel,
                 ],
               ),
             );
