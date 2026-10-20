@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../core/navigation/slide_page_route.dart';
 import '../core/theme/app_theme.dart';
 import '../models/user_role.dart';
 import 'student/create_account_screen.dart';
@@ -309,7 +310,7 @@ class _LoginPanelState extends State<_LoginPanel> {
                       : () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(
+                            SlidePageRoute(
                               builder: (_) => StaffLoginScreen(
                                 onContinue: widget.onContinue,
                               ),
@@ -336,7 +337,7 @@ class _LoginPanelState extends State<_LoginPanel> {
                       : () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(
+                            SlidePageRoute(
                               builder: (_) => CreateAccountScreen(
                                 onContinue: widget.onContinue,
                               ),

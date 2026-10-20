@@ -125,13 +125,15 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
     );
   }
 
+  // This is the widget for the desktop layout, which includes a sidebar and a top bar.
   Widget _buildDesktop() {
     return Scaffold(
       body: Row(
         children: [
           _DesktopSidebar(
             destinations: _destinations,
-            selectedIndex: _selectedIndex,
+            // If the profile screen is being shown, we don't want any of the sidebar items to be selected.
+            selectedIndex: _showProfile ? null : _selectedIndex,
             onSelected: (index) => setState(() {
               _selectedIndex = index;
               _showProfile = false;
@@ -181,11 +183,31 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
               PopupMenuItem(
                 value: 'switch-role',
                 child: Text(
-                  'Switch to ${_role == UserRole.student ? 'staff' : 'student'} view',
+                  'Switch to ${_role == UserRole.student ? 'staff' : 'student'} view', // this controls switching between users
                 ),
               ),
-              const PopupMenuItem(value: 'profile', child: Text('Profile')),
-              const PopupMenuItem(value: 'sign-out', child: Text('Sign out')),
+              // Add a menu item for the user's profile
+              const PopupMenuItem(
+                value: 'profile',
+                child: Row(
+                  children: [
+                    Icon(Icons.person_outline, size: 20), // added a profile icon to the profile option in the drop down menu
+                    SizedBox(width: 12),
+                    Text('Profile'),
+                  ],
+                ),
+              ),
+              // Add a menu item for signing out
+              const PopupMenuItem(
+                value: 'sign-out',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, size: 20), // added a logout icon to the sign out option in the drop down menu
+                    SizedBox(width: 12),
+                    Text('Log out'),
+                  ],
+                ),
+              ),
             ],
             child: const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16),
@@ -231,7 +253,7 @@ class _DesktopSidebar extends StatelessWidget {
   });
 
   final List<_Destination> destinations;
-  final int selectedIndex;
+  final int? selectedIndex;
   final ValueChanged<int> onSelected;
   final VoidCallback onSignOut;
 
@@ -374,8 +396,26 @@ class _TopBar extends StatelessWidget {
                   'Switch to ${role == UserRole.student ? 'staff' : 'student'} view',
                 ),
               ),
-              const PopupMenuItem(value: 'profile', child: Text('Profile')),
-              const PopupMenuItem(value: 'sign-out', child: Text('Sign out')),
+              const PopupMenuItem(
+                value: 'profile',
+                child: Row(
+                  children: [
+                    Icon(Icons.person_outline, size: 20),
+                    SizedBox(width: 12),
+                    Text('Profile'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'sign-out',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, size: 20),
+                    SizedBox(width: 12),
+                    Text('Log out'),
+                  ],
+                ),
+              ),
             ],
             child: Row(
               children: [
