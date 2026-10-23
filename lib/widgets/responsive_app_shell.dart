@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../core/theme/app_theme.dart';
 import '../models/user_role.dart';
@@ -25,6 +26,7 @@ class ResponsiveAppShell extends StatefulWidget {
 class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
   late UserRole _role;
   int _selectedIndex = 0;
+  bool _showProfile = false;
 
   @override
   void initState() {
@@ -41,7 +43,6 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
             Icons.assignment_outlined,
             Icons.assignment,
           ),
-          _Destination('Profile', Icons.person_outline, Icons.person),
         ]
       : const [
           _Destination('Dashboard', Icons.dashboard_outlined, Icons.dashboard),
@@ -55,10 +56,13 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
             Icons.qr_code_scanner,
             Icons.qr_code_scanner,
           ),
-          _Destination('Profile', Icons.person_outline, Icons.person),
         ];
 
   Widget get _selectedScreen {
+    if (_showProfile) {
+      return ProfileScreen(role: _role);
+    }
+
     if (_role == UserRole.student) {
       return switch (_selectedIndex) {
         0 => StudentDashboardScreen(
@@ -66,7 +70,7 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
         ),
         1 => const EquipmentCatalogScreen(),
         2 => const MyRentalsScreen(),
-        _ => ProfileScreen(role: _role),
+        _ => const StudentDashboardScreen(onBrowseAll: _noop),
       };
     }
 
@@ -82,22 +86,32 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
         description: 'Scan a student and an equipment QR code to complete staff-assisted transactions.',
         icon: Icons.qr_code_scanner,
       ),
-      _ => ProfileScreen(role: _role),
+      _ => const StaffDashboardScreen(),
     };
   }
+
+  static void _noop() {}
 
   void _switchRole() {
     setState(() {
       _role = _role == UserRole.student ? UserRole.staff : UserRole.student;
       _selectedIndex = 0;
+      _showProfile = false;
     });
+  }
+
+  Future<void> _signOut() async {
+    await FirebaseAuth.instance.signOut();
+    widget.onSignOut();
   }
 
   void _handleAccountAction(String action) {
     if (action == 'switch-role') {
       _switchRole();
+    } else if (action == 'profile') {
+      setState(() => _showProfile = true);
     } else if (action == 'sign-out') {
-      widget.onSignOut();
+      _signOut();
     }
   }
 
@@ -111,24 +125,25 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
     );
   }
 
+  // This is the widget for the desktop layout, which includes a sidebar and a top bar.
   Widget _buildDesktop() {
     return Scaffold(
       body: Row(
         children: [
           _DesktopSidebar(
             destinations: _destinations,
-            selectedIndex: _selectedIndex,
-            onSelected: (index) => setState(() => _selectedIndex = index),
-            onSignOut: widget.onSignOut,
+            // If the profile screen is being shown, we don't want any of the sidebar items to be selected.
+            selectedIndex: _showProfile ? null : _selectedIndex,
+            onSelected: (index) => setState(() {
+              _selectedIndex = index;
+              _showProfile = false;
+            }),
+            onSignOut: _signOut,
           ),
           Expanded(
             child: Column(
               children: [
-                _TopBar(
-                  pageTitle: _destinations[_selectedIndex].label,
-                  role: _role,
-                  onAccountAction: _handleAccountAction,
-                ),
+                _TopBar(role: _role, onAccountAction: _handleAccountAction),
                 Expanded(child: _selectedScreen),
               ],
             ),
@@ -158,16 +173,7 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
                 ),
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                _destinations[_selectedIndex].label,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 18,
-                ),
-              ),
-            ),
+            const Spacer(),
           ],
         ),
         actions: [
@@ -177,10 +183,31 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
               PopupMenuItem(
                 value: 'switch-role',
                 child: Text(
-                  'Switch to ${_role == UserRole.student ? 'staff' : 'student'} view',
+                  'Switch to ${_role == UserRole.student ? 'staff' : 'student'} view', // this controls switching between users
                 ),
               ),
-              const PopupMenuItem(value: 'sign-out', child: Text('Sign out')),
+              // Add a menu item for the user's profile
+              const PopupMenuItem(
+                value: 'profile',
+                child: Row(
+                  children: [
+                    Icon(Icons.person_outline, size: 20), // added a profile icon to the profile option in the drop down menu
+                    SizedBox(width: 12),
+                    Text('Profile'),
+                  ],
+                ),
+              ),
+              // Add a menu item for signing out
+              const PopupMenuItem(
+                value: 'sign-out',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, size: 20), // added a logout icon to the sign out option in the drop down menu
+                    SizedBox(width: 12),
+                    Text('Log out'),
+                  ],
+                ),
+              ),
             ],
             child: const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16),
@@ -200,8 +227,10 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
       body: _selectedScreen,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) =>
-            setState(() => _selectedIndex = index),
+        onDestinationSelected: (index) => setState(() {
+          _selectedIndex = index;
+          _showProfile = false;
+        }),
         destinations: [
           for (final destination in _destinations)
             NavigationDestination(
@@ -224,7 +253,7 @@ class _DesktopSidebar extends StatelessWidget {
   });
 
   final List<_Destination> destinations;
-  final int selectedIndex;
+  final int? selectedIndex;
   final ValueChanged<int> onSelected;
   final VoidCallback onSignOut;
 
@@ -259,15 +288,15 @@ class _DesktopSidebar extends StatelessWidget {
                   onTap: () => onSelected(index),
                 ),
               const Spacer(),
-              _SidebarItem(
-                destination: const _Destination(
-                  'Sign out',
-                  Icons.logout,
-                  Icons.logout,
-                ),
-                selected: false,
-                onTap: onSignOut,
-              ),
+              // _SidebarItem(
+              //   destination: const _Destination(
+              //     'Sign out',
+              //     Icons.logout,
+              //     Icons.logout,
+              //   ),
+              //   selected: false,
+              //   onTap: onSignOut,
+              // ),
               const SizedBox(height: 12),
             ],
           ),
@@ -335,13 +364,8 @@ class _SidebarItem extends StatelessWidget {
 }
 
 class _TopBar extends StatelessWidget {
-  const _TopBar({
-    required this.pageTitle,
-    required this.role,
-    required this.onAccountAction,
-  });
+  const _TopBar({required this.role, required this.onAccountAction});
 
-  final String pageTitle;
   final UserRole role;
   final ValueChanged<String> onAccountAction;
 
@@ -356,12 +380,7 @@ class _TopBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Expanded(
-            child: Text(
-              pageTitle,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-          ),
+          const Spacer(),
           IconButton(
             onPressed: () {},
             tooltip: 'Notifications',
@@ -377,7 +396,26 @@ class _TopBar extends StatelessWidget {
                   'Switch to ${role == UserRole.student ? 'staff' : 'student'} view',
                 ),
               ),
-              const PopupMenuItem(value: 'sign-out', child: Text('Sign out')),
+              const PopupMenuItem(
+                value: 'profile',
+                child: Row(
+                  children: [
+                    Icon(Icons.person_outline, size: 20),
+                    SizedBox(width: 12),
+                    Text('Profile'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'sign-out',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, size: 20),
+                    SizedBox(width: 12),
+                    Text('Log out'),
+                  ],
+                ),
+              ),
             ],
             child: Row(
               children: [
