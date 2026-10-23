@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
+
 import '../models/reservation.dart';
 
-abstract interface class ReservationService {
+abstract interface class ReservationService implements Listenable {
   Future<Reservation> createReservation({
     required String studentUid,
     required String equipmentId,
@@ -19,7 +21,8 @@ class ReservationServiceException implements Exception {
   String toString() => message;
 }
 
-class InMemoryReservationService implements ReservationService {
+class InMemoryReservationService extends ChangeNotifier
+    implements ReservationService {
   InMemoryReservationService({DateTime Function()? clock})
     : _clock = clock ?? DateTime.now;
 
@@ -60,6 +63,8 @@ class InMemoryReservationService implements ReservationService {
     );
 
     _reservations.add(reservation);
+    notifyListeners();
+
     return reservation;
   }
 
