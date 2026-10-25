@@ -40,4 +40,47 @@ void main() {
     expect(find.text('Test Reservation Camera'), findsOneWidget);
     expect(find.text('Pickup details'), findsOneWidget);
   });
+
+  testWidgets('new waitlist entry appears with its queue position', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1000, 1100));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final currentTime = DateTime.now();
+    final service = InMemoryReservationService(
+      clock: () => currentTime,
+      initialWaitlistCounts: const {'EQ-1003': 2},
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MyRentalsScreen(
+            reservationService: service,
+            studentUid: 'student-1',
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('You are not currently on any equipment waitlists.'),
+      findsOneWidget,
+    );
+
+    await service.joinWaitlist(
+      studentUid: 'student-1',
+      equipmentId: 'EQ-1003',
+      equipmentName: 'Zoom H6 Audio Recorder',
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Zoom H6 Audio Recorder'), findsOneWidget);
+    expect(find.text('Waitlist position #3'), findsOneWidget);
+    expect(find.text('Waitlist details'), findsOneWidget);
+  });
 }

@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../data/mock_data.dart';
 import '../../models/rental.dart';
 import '../../models/reservation.dart';
+import '../../models/waitlist_entry.dart';
 import '../../services/reservation_service.dart';
 
 class MyRentalsScreen extends StatefulWidget {
@@ -28,6 +29,7 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
   late final ReservationService _reservationService;
 
   List<Reservation> _reservations = [];
+  List<WaitlistEntry> _waitlistEntries = [];
   bool _loadingReservations = true;
   bool _reservationLoadFailed = false;
 
@@ -57,6 +59,8 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
       final reservations = await _reservationService.getReservationsForStudent(
         widget.studentUid,
       );
+      final waitlistEntries = await _reservationService
+          .getWaitlistEntriesForStudent(widget.studentUid);
 
       if (!mounted) {
         return;
@@ -64,6 +68,7 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
 
       setState(() {
         _reservations = reservations;
+        _waitlistEntries = waitlistEntries;
         _loadingReservations = false;
         _reservationLoadFailed = false;
       });
@@ -105,11 +110,79 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
     );
   }
 
+  void _showWaitlistDetails(WaitlistEntry entry) {
+    unawaited(
+      showDialog<void>(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: Text(entry.equipmentName),
+            content: Text(
+              'Waitlist request: ${entry.id}\n\n'
+              'Current position: #${entry.position}\n\n'
+              'You will be notified when equipment becomes available. '
+              'Your one-day pickup window begins only after an item is '
+              'assigned to you.',
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Done'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final checkedOutRentals = mockRentals
-        .where((rental) => rental.status == RentalStatus.checkedOut)
-        .toList();
+    final pendingReservations =
+        _reservations
+            .where(
+              (reservation) =>
+                  reservation.status == ReservationStatus.pendingPickup,
+            )
+            .toList()
+          ..sort(
+            (first, second) =>
+                first.pickupDeadline.compareTo(second.pickupDeadline),
+          );
+
+    final sortedWaitlistEntries = List<WaitlistEntry>.of(_waitlistEntries)
+      ..sort((first, second) {
+        final positionComparison = first.position.compareTo(second.position);
+
+        if (positionComparison != 0) {
+          return positionComparison;
+        }
+
+        return first.joinedAt.compareTo(second.joinedAt);
+      });
+
+    final checkedOutRentals =
+        mockRentals
+            .where((rental) => rental.status == RentalStatus.checkedOut)
+            .toList()
+          ..sort((first, second) {
+            final firstDeadline = first.dueDate;
+            final secondDeadline = second.dueDate;
+
+            if (firstDeadline == null && secondDeadline == null) {
+              return first.equipmentName.compareTo(second.equipmentName);
+            }
+
+            if (firstDeadline == null) {
+              return 1;
+            }
+
+            if (secondDeadline == null) {
+              return -1;
+            }
+
+            return firstDeadline.compareTo(secondDeadline);
+          });
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -120,7 +193,8 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
           const SizedBox(height: 6),
           const Text(
             'Checked-out items have a fixed 14-day rental period. '
-            'Reservations expire if not picked up within one day.',
+            'Reservations expire if not picked up within one day. '
+            'Waitlisted items show your current queue position.',
             style: TextStyle(color: AppColors.muted),
           ),
           const SizedBox(height: 24),
@@ -131,20 +205,45 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
           else if (_reservationLoadFailed)
             const _MessageCard(
               icon: Icons.error_outline,
-              message: 'Reservations could not be loaded.',
+              message: 'Equipment requests could not be loaded.',
               color: AppColors.csunRed,
             )
-          else if (_reservations.isEmpty)
+          else if (pendingReservations.isEmpty)
             const _MessageCard(
               icon: Icons.event_available_outlined,
               message: 'You do not have any equipment waiting for pickup.',
               color: AppColors.muted,
             )
           else
-            for (final reservation in _reservations) ...[
+            for (final reservation in pendingReservations) ...[
               _ReservationCard(
                 reservation: reservation,
                 onDetails: () => _showReservationDetails(reservation),
+              ),
+              const SizedBox(height: 14),
+            ],
+          const SizedBox(height: 28),
+          Text('Waitlist', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 12),
+          if (_loadingReservations)
+            const Center(child: CircularProgressIndicator())
+          else if (_reservationLoadFailed)
+            const _MessageCard(
+              icon: Icons.error_outline,
+              message: 'Waitlist requests could not be loaded.',
+              color: AppColors.csunRed,
+            )
+          else if (sortedWaitlistEntries.isEmpty)
+            const _MessageCard(
+              icon: Icons.format_list_numbered,
+              message: 'You are not currently on any equipment waitlists.',
+              color: AppColors.muted,
+            )
+          else
+            for (final entry in sortedWaitlistEntries) ...[
+              _WaitlistCard(
+                entry: entry,
+                onDetails: () => _showWaitlistDetails(entry),
               ),
               const SizedBox(height: 14),
             ],
@@ -251,6 +350,96 @@ class _ReservationCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(Icons.event_available_outlined, color: accent),
+              ),
+              const SizedBox(width: 18),
+              Expanded(child: details),
+              action,
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _WaitlistCard extends StatelessWidget {
+  const _WaitlistCard({required this.entry, required this.onDetails});
+
+  final WaitlistEntry entry;
+  final VoidCallback onDetails;
+
+  @override
+  Widget build(BuildContext context) {
+    const accent = Color(0xFF1565C0);
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 600;
+
+          final details = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                entry.equipmentName,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 5),
+              Text(
+                entry.id,
+                style: const TextStyle(color: AppColors.muted, fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'Waitlist position #${entry.position}',
+                  style: const TextStyle(
+                    color: accent,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          );
+
+          final action = OutlinedButton.icon(
+            onPressed: onDetails,
+            icon: const Icon(Icons.format_list_numbered),
+            label: const Text('Waitlist details'),
+          );
+
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [details, const SizedBox(height: 16), action],
+            );
+          }
+
+          return Row(
+            children: [
+              Container(
+                width: 54,
+                height: 54,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.format_list_numbered, color: accent),
               ),
               const SizedBox(width: 18),
               Expanded(child: details),
