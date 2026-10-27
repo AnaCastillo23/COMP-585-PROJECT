@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/navigation/slide_page_route.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/user_role.dart';
+import 'package:flutter/services.dart';
 
 class CreateAccountScreen extends StatefulWidget {
   const CreateAccountScreen({super.key, required this.onContinue});
@@ -21,35 +22,122 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
+  final _studentIdController = TextEditingController();
 
   bool _loading = false;
   bool _hidePassword = true;
   bool _hideConfirmPassword = true;
   String? _errorMessage;
 
+  static const _termsText = '''
+1. Acceptance of Terms
+By creating an account, you agree to use the CSUN Equipment Checkout system in accordance with university policies.
+
+2. Equipment Responsibility
+You are responsible for any equipment checked out under your account. Equipment must be returned by the due date in the same condition it was received.
+
+3. Late and Damaged Items
+Late returns may result in a temporary hold on your account. You may be responsible for the repair or replacement cost of lost or damaged equipment.
+
+4. Account Use
+Your account is for your use only. Do not share your login or check out equipment on behalf of another student.
+
+5. Privacy
+Your name, email, and student ID are used only to manage equipment checkouts and are visible only to you and authorized staff.
+
+6. Changes
+These terms may be updated at any time. Continued use of the system means you accept the updated terms.
+
+This is sample text for a class project and is not a legal agreement.
+''';
+
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _studentIdController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
     super.dispose();
   }
+  Future<void> _rollback(User? user) async {
+  try {
+    await user?.delete(); // remove the half-created Auth account
+  } catch (_) {}
+  try {
+    await FirebaseAuth.instance.signOut();
+  } catch (_) {}
+}
 
+Future<bool?> _showTerms() {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        var agreed = false;
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: const Text('Terms and Conditions'),
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480, maxHeight: 400),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Expanded(
+                    child: SingleChildScrollView(child: Text(_termsText)),
+                  ),
+                  const SizedBox(height: 8),
+                  CheckboxListTile(
+                    value: agreed,
+                    onChanged: (v) =>
+                        setDialogState(() => agreed = v ?? false),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('I have read and agree to the terms'),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Decline'),
+              ),
+              FilledButton(
+                onPressed: agreed
+                    ? () => Navigator.pop(dialogContext, true)
+                    : null,
+                child: const Text('Continue'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
   Future<void> _createAccount() async {
     if (!_formKey.currentState!.validate()) return;
+
+    // Ask for terms first. Nothing is created unless they accept.
+    final accepted = await _showTerms();
+    if (accepted != true || !mounted) return;
 
     setState(() {
       _loading = true;
       _errorMessage = null;
     });
 
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim().toLowerCase();
+    final studentId = _studentIdController.text.trim();
     User? user;
 
     try {
       final credential = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(
-            email: _emailController.text.trim(),
+            email: email,
             password: _passwordController.text,
           );
 
@@ -59,60 +147,72 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         throw Exception('Unable to create your account.');
       }
 
-      await user.updateDisplayName(_nameController.text.trim());
+      // Reserve the student ID and create the profile atomically.
+    try {
+      final db = FirebaseFirestore.instance;
+      final batch = db.batch();
 
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-        'name': _nameController.text.trim(),
-        'email': user.email,
+      batch.set(db.collection('studentIds').doc(studentId), {
+        'uid': user.uid,
+      });
+      batch.set(db.collection('users').doc(user.uid), {
+        'name': name,
+        'email': email,
+        'studentId': studentId,
         'role': 'student',
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      if (!mounted) return;
-
-      widget.onContinue(UserRole.student);
-    } on FirebaseAuthException catch (error) {
-      if (!mounted) return;
-
-      setState(() {
-        switch (error.code) {
-          case 'email-already-in-use':
-            _errorMessage = 'An account already exists with this email.';
-            break;
-          case 'invalid-email':
-            _errorMessage = 'Please enter a valid email address.';
-            break;
-          case 'weak-password':
-            _errorMessage = 'Your password must be at least 6 characters.';
-            break;
-          case 'network-request-failed':
-            _errorMessage = 'Check your internet connection and try again.';
-            break;
-          default:
-            _errorMessage = error.message ?? 'Unable to create your account.';
-        }
-      });
-    } catch (_) {
-      // if profile creation fails, user can't be signed in
-      // without a completed student profile.
-      if (user != null) {
-        try {
-          await FirebaseAuth.instance.signOut();
-        } catch (_) {}
-      }
-
+      await batch.commit();
+    } on FirebaseException catch (e) {
+      await _rollback(user); // delete the half-created Auth account
       if (!mounted) return;
 
       setState(() {
-        _errorMessage = 'Account setup failed. Please try again.';
+        _errorMessage = e.code == 'permission-denied'
+            ? 'That student ID is already registered.'
+            : 'Account setup failed. Please try again.';
       });
-    } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
+      return; // `finally` still turns off the loading spinner
     }
-  }
 
+    try {
+      await user.updateDisplayName(name);
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    widget.onContinue(UserRole.student);
+  } on FirebaseAuthException catch (error) {
+    await _rollback(user);
+    if (!mounted) return;
+
+    setState(() {
+      switch (error.code) {
+        case 'email-already-in-use':
+          _errorMessage = 'An account already exists with this email.';
+          break;
+        case 'invalid-email':
+          _errorMessage = 'Please enter a valid email address.';
+          break;
+        case 'weak-password':
+          _errorMessage = 'Your password must be at least 6 characters.';
+          break;
+        case 'network-request-failed':
+          _errorMessage = 'Check your internet connection and try again.';
+          break;
+        default:
+          _errorMessage = error.message ?? 'Unable to create your account.';
+      }
+    });
+  } catch (_) {
+    await _rollback(user);
+    if (!mounted) return;
+    setState(() => _errorMessage = 'Account setup failed. Please try again.');
+  } finally {
+    if (mounted) setState(() => _loading = false);
+  }
+}
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -129,6 +229,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
               emailController: _emailController,
               passwordController: _passwordController,
               confirmController: _confirmController,
+              studentIdController: _studentIdController,
               loading: _loading,
               hidePassword: _hidePassword,
               hideConfirmPassword: _hideConfirmPassword,
@@ -225,6 +326,7 @@ class _CreateAccountPanel extends StatelessWidget {
     required this.nameController,
     required this.emailController,
     required this.passwordController,
+    required this.studentIdController,
     required this.confirmController,
     required this.loading,
     required this.hidePassword,
@@ -239,6 +341,7 @@ class _CreateAccountPanel extends StatelessWidget {
   final TextEditingController nameController;
   final TextEditingController emailController;
   final TextEditingController passwordController;
+  final TextEditingController studentIdController;
   final TextEditingController confirmController;
   final bool loading;
   final bool hidePassword;
@@ -317,6 +420,29 @@ class _CreateAccountPanel extends StatelessWidget {
                       return 'Use your @my.csun.edu email.';
                     }
 
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: studentIdController,
+                  keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.next,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(9),
+                  ],
+                  decoration: const InputDecoration(
+                    labelText: 'CSUN student ID',
+                    hintText: '9-digit ID',
+                    prefixIcon: Icon(Icons.badge_outlined),
+                  ),
+                  validator: (value) {
+                    final id = value?.trim() ?? '';
+                    if (id.isEmpty) return 'Please enter your student ID.';
+                    if (!RegExp(r'^\d{9}$').hasMatch(id)) {
+                      return 'Student ID must be 9 digits.';
+                    }
                     return null;
                   },
                 ),
