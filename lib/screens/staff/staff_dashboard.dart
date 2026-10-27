@@ -63,6 +63,8 @@ class StaffDashboardScreen extends StatelessWidget {
   }
 }
 
+//_QuickActions widget builds the staff dashboard's quick actions section, which includes a featured action for scanning equipment and
+// four additional quick action tiles for finding students, viewing reservations, adding equipment, and reporting issues. The layout adapts to the available width, displaying the tiles in rows or columns as appropriate.
 class _QuickActions extends StatelessWidget {
   const _QuickActions();
 
@@ -70,7 +72,15 @@ class _QuickActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
+      // LayoutBuilder is used to determine the available width and adjust the layout of the quick action tiles
       builder: (context, constraints) {
+        // if the width is greater than or equal to 620 pixels, the tiles are displayed in two rows of two tiles each;
+        // 620 pixels was used based on the approximate space needed for two action tiles to fit side by side with some spacing between them.
+        // because the tiles use Expanded widgets, they will automatically adjust their width to fill the available space in each row.
+        // this width will be divided between the two tiles after accounting for a 12 pixel gap.
+        // otherwise, they are displayed in a single column stcaked vertically.
+        // The featured quick action for scanning equipment is always displayed at the top of the section.
+        // each _QuickActionTile receives an icon, title, and description as parameters, which are used to build the tile's content.
         final isWide = constraints.maxWidth >= 620;
         const tiles = [
           _QuickActionTile(
@@ -95,6 +105,7 @@ class _QuickActions extends StatelessWidget {
           ),
         ];
 
+        // The layout adapts to the available width, displaying the tiles in rows or columns.
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -136,6 +147,8 @@ class _QuickActions extends StatelessWidget {
   }
 }
 
+// the scan equipment quick action tile is a featured action that is displayed at the top of the quick actions section of the staff dashboard.
+//It has a larger size than the other quick action tiles, and it includes an icon, title, and description.
 class _FeaturedQuickAction extends StatelessWidget {
   const _FeaturedQuickAction();
 
@@ -295,7 +308,8 @@ class _ActivityListState extends State<_ActivityList> {
 
   // this is static list at the moment of recent activity entries, which will be replaced with dynamic data in the future
   static const _activities = [
-    // all values are hardcoded for now, will be replaced with dynamic data in the future
+    // all values are hardcoded for now, will be replaced with dynamic data in the future.
+    // all entries are stored here, and they contain a title, detail, type, status, timestamp, icon, status color, and status background color.
     _ActivityEntry(
       title: 'Camera CAM-018 returned',
       detail: 'Student ID ending in 4821',
@@ -346,6 +360,8 @@ class _ActivityListState extends State<_ActivityList> {
     super.dispose();
   }
 
+  // filtering the activities based on the search query, selected type, selected status, and selected range.
+  // The filtered activities are returned as a list of _ActivityEntry objects.
   List<_ActivityEntry> get _filteredActivities {
     final query = _searchController.text.trim().toLowerCase();
 
@@ -406,6 +422,8 @@ class _ActivityListState extends State<_ActivityList> {
             TextButton.icon(
               onPressed: () {},
               icon: const Icon(Icons.arrow_forward, size: 16),
+              // view all button would take the user to a page showing all activity entries, which is not implemented yet
+              // pagination is also a visual placeholder for now, as the activity list is static and does not support pagination yet.
               label: const Text('View all'),
               style: TextButton.styleFrom(
                 foregroundColor: AppColors.csunRed,
@@ -442,6 +460,7 @@ class _ActivityListState extends State<_ActivityList> {
           // controls for switching between pages of activity entries, which includes a label showing the number of activities being displayed and buttons for navigating to different pages
           children: [
             Text(
+              // result count shows how many activities currently match the filters or the search.
               'Showing ${activities.length} of ${activities.length} activities',
               style: const TextStyle(color: AppColors.muted, fontSize: 12),
             ),
@@ -493,6 +512,7 @@ class _ActivityFilters extends StatelessWidget {
         border: Border.all(color: AppColors.border),
         borderRadius: BorderRadius.circular(9),
       ),
+      // LayoutBuilder is used to determine the available width and adjust the layout of the search and filter controls
       child: LayoutBuilder(
         builder: (context, constraints) {
           final isWide = constraints.maxWidth >= 760;
@@ -703,7 +723,7 @@ class _ActivityWideRow extends StatelessWidget {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: _ActivityPill(
-                  // actovoty pills are for easy identification of the activity type and status, with different colors for each status
+                  // activity pills are for easy identification of the activity type and status, with different colors for each status
                   label: activity.status,
                   foreground: activity.statusColor,
                   background: activity.statusBackground,
