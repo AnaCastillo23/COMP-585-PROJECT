@@ -1,12 +1,29 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../models/activity_entry.dart';
+import '../../models/equipment.dart';
+import '../../models/loan.dart';
+import '../../services/activity_service.dart';
+import '../../services/equipment_service.dart';
+import '../../services/loan_service.dart';
+import 'equipment_form_dialog.dart';
+import 'manage_equipment_screen.dart';
 
 class StaffDashboardScreen extends StatelessWidget {
-  const StaffDashboardScreen({super.key});
+  const StaffDashboardScreen({
+    super.key,
+    this.equipmentService,
+    this.onViewInventory,
+  });
+
+  final EquipmentService? equipmentService;
+  final VoidCallback? onViewInventory;
 
   @override
   Widget build(BuildContext context) {
+    final service = equipmentService ?? FirestoreEquipmentService();
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -22,39 +39,9 @@ class StaffDashboardScreen extends StatelessWidget {
             style: TextStyle(color: AppColors.muted),
           ),
           const SizedBox(height: 22),
-          const Wrap(
-            spacing: 14,
-            runSpacing: 14,
-            children: [
-              _StaffStat(
-                label: 'Total assets',
-                value: '48',
-                icon: Icons.inventory_2_outlined,
-              ),
-              _StaffStat(
-                label: 'Available',
-                value: '21',
-                icon: Icons.check_circle_outline,
-              ),
-              _StaffStat(
-                label: 'Checked out',
-                value: '19',
-                icon: Icons.logout_outlined,
-              ),
-              _StaffStat(
-                label: 'Reserved',
-                value: '5',
-                icon: Icons.event_outlined,
-              ),
-              _StaffStat(
-                label: 'Maintenance',
-                value: '3',
-                icon: Icons.build_outlined,
-              ),
-            ],
-          ),
+          _StatsRow(service: service),
           const SizedBox(height: 28),
-          const _QuickActions(),
+          _QuickActions(service: service, onViewInventory: onViewInventory),
           const SizedBox(height: 28),
           const _ActivityList(),
         ],
@@ -63,22 +50,148 @@ class StaffDashboardScreen extends StatelessWidget {
   }
 }
 
-class _QuickActions extends StatelessWidget {
-  const _QuickActions();
+// ───────────────────────── Stats ─────────────────────────
 
-  // widget for the quick actions section of the staff dashboard
+/// Holds its streams in State so they aren't recreated on every rebuild.
+class _StatsRow extends StatefulWidget {
+  const _StatsRow({required this.service});
+
+  final EquipmentService service;
+
+  @override
+  State<_StatsRow> createState() => _StatsRowState();
+}
+
+class _StatsRowState extends State<_StatsRow> {
+  late final Stream<List<Equipment>> _equipment =
+      widget.service.watchEquipment();
+  late final Stream<List<Loan>> _loans = LoanService().watchActiveLoans();
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<Equipment>>(
+      stream: _equipment,
+      builder: (context, equipmentSnap) {
+        return StreamBuilder<List<Loan>>(
+          stream: _loans,
+          builder: (context, loanSnap) {
+            final items = equipmentSnap.data ?? const <Equipment>[];
+
+            final total = items.fold<int>(0, (s, e) => s + e.totalUnits);
+            final available =
+                items.fold<int>(0, (s, e) => s + e.availableUnits);
+            final maintenance = items.fold<int>(
+              0,
+              (s, e) => s + e.countWithStatus(EquipmentStatus.maintenance),
+            );
+           // final unavailable = items.fold<int>(
+             // 0,
+            //  (s, e) => s + e.countWithStatus(EquipmentStatus.unavailable),
+            //);
+
+            // Units out on a loan are also "unavailable". Whatever
+            // unavailable units are NOT on a loan show up as Reserved.
+            final reserved = items.fold<int>(
+              0,
+              (s, e) => s + e.countWithStatus(EquipmentStatus.reserved),
+            );
+            final checkedOut = loanSnap.data?.length ?? 0;
+
+            return Wrap(
+              spacing: 14,
+              runSpacing: 14,
+              children: [
+                _StaffStat(
+                  label: 'Total assets',
+                  value: '$total',
+                  icon: Icons.inventory_2_outlined,
+                ),
+                _StaffStat(
+                  label: 'Available',
+                  value: '$available',
+                  icon: Icons.check_circle_outline,
+                ),
+                _StaffStat(
+                  label: 'Checked out',
+                  value: '$checkedOut',
+                  icon: Icons.logout_outlined,
+                ),
+                _StaffStat(
+                  label: 'Reserved',
+                  value: '$reserved',
+                  icon: Icons.event_outlined,
+                ),
+                _StaffStat(
+                  label: 'Maintenance',
+                  value: '$maintenance',
+                  icon: Icons.build_outlined,
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _StaffStat extends StatelessWidget {
+  const _StaffStat({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 190,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: AppColors.csunRed),
+          const SizedBox(height: 16),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
+          ),
+          Text(label, style: const TextStyle(color: AppColors.muted)),
+        ],
+      ),
+    );
+  }
+}
+
+// ───────────────────────── Quick actions ─────────────────────────
+
+class _QuickActions extends StatelessWidget {
+  const _QuickActions({required this.service, this.onViewInventory});
+
+  final EquipmentService service;
+  final VoidCallback? onViewInventory;
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= 620;
-        const tiles = [
-          _QuickActionTile(
+        final tiles = [
+          const _QuickActionTile(
             icon: Icons.person_search_outlined,
             title: 'Find student',
             description: 'Look up a student or their loans',
           ),
-          _QuickActionTile(
+          const _QuickActionTile(
             icon: Icons.event_outlined,
             title: 'Reservations',
             description: 'View upcoming pickups',
@@ -87,8 +200,9 @@ class _QuickActions extends StatelessWidget {
             icon: Icons.add_box_outlined,
             title: 'Add equipment',
             description: 'Register a new asset',
+            onTap: () => showEquipmentFormDialog(context, service),
           ),
-          _QuickActionTile(
+          const _QuickActionTile(
             icon: Icons.build_outlined,
             title: 'Report issue',
             description: 'Flag damaged equipment',
@@ -98,9 +212,31 @@ class _QuickActions extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Quick actions',
-              style: Theme.of(context).textTheme.titleLarge,
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Quick actions',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: onViewInventory ??
+                      () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => ManageEquipmentScreen(
+                                equipmentService: service,
+                              ),
+                            ),
+                          ),
+                  icon: const Icon(Icons.inventory_2_outlined, size: 16),
+                  label: const Text('View inventory'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.csunRed,
+                    padding: EdgeInsets.zero,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             const _FeaturedQuickAction(),
@@ -194,92 +330,63 @@ class _FeaturedQuickAction extends StatelessWidget {
   }
 }
 
-// this is for the quick action tiles that are displayed in the quick actions section of the staff dashboard
-// each tile has an icon, title, and description
+// Quick action tile: icon, title, description, and an optional tap action.
 class _QuickActionTile extends StatelessWidget {
   const _QuickActionTile({
     required this.icon,
     required this.title,
     required this.description,
+    this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String description;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      height: 104,
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: AppColors.border),
+    return Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
+        side: const BorderSide(color: AppColors.border),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: AppColors.csunRed, size: 21),
-          const Spacer(),
-          Text(
-            title,
-            style: const TextStyle(
-              color: AppColors.ink,
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Container(
+          width: double.infinity,
+          height: 104,
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, color: AppColors.csunRed, size: 21),
+              const Spacer(),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: AppColors.ink,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                description,
+                style: const TextStyle(color: AppColors.muted, fontSize: 13),
+              ),
+            ],
           ),
-          const SizedBox(height: 6),
-          Text(
-            description,
-            style: const TextStyle(color: AppColors.muted, fontSize: 13),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _StaffStat extends StatelessWidget {
-  const _StaffStat({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
+// ───────────────────────── Recent activity ─────────────────────────
 
-  final String label;
-  final String value;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 190,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: AppColors.csunRed),
-          const SizedBox(height: 16),
-          Text(
-            value,
-            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
-          ),
-          Text(label, style: const TextStyle(color: AppColors.muted)),
-        ],
-      ),
-    );
-  }
-}
-
-// for the activity list section of the staff dashboard, which displays recent activity in a table format with filters for searching and sorting
 class _ActivityList extends StatefulWidget {
   const _ActivityList();
 
@@ -288,57 +395,17 @@ class _ActivityList extends StatefulWidget {
 }
 
 class _ActivityListState extends State<_ActivityList> {
+  static const _pageSize = 5;
+
+  // Created once so typing in the search box doesn't restart the stream.
+  late final Stream<List<ActivityEntry>> _stream =
+      ActivityService().watchRecent();
+
   final _searchController = TextEditingController();
   String _selectedType = 'All activity types';
   String _selectedStatus = 'All statuses';
   String _selectedRange = 'Last 7 days';
-
-  // this is static list at the moment of recent activity entries, which will be replaced with dynamic data in the future
-  static const _activities = [
-    // all values are hardcoded for now, will be replaced with dynamic data in the future
-    _ActivityEntry(
-      title: 'Camera CAM-018 returned',
-      detail: 'Student ID ending in 4821',
-      type: 'Return',
-      status: 'Completed',
-      timestamp: '12 min ago',
-      icon: Icons.photo_camera_outlined,
-      statusColor: Color(
-        0xFF247A4A,
-      ), // the color of the status pill, which is green for completed
-      statusBackground: Color(0xFFDDF3E5),
-    ),
-    _ActivityEntry(
-      title: 'Laptop reservation ready',
-      detail: 'Pickup window ends tomorrow at 3:30 PM',
-      type: 'Reservation',
-      status: 'Pickup pending',
-      timestamp: '28 min ago',
-      icon: Icons.laptop_mac_outlined,
-      statusColor: Color(0xFFB36B00),
-      statusBackground: Color(0xFFFFEBCB),
-    ),
-    _ActivityEntry(
-      title: 'Tripod condition updated',
-      detail: 'TRI-031 marked for staff inspection',
-      type: 'Maintenance',
-      status: 'Needs attention',
-      timestamp: '46 min ago',
-      icon: Icons.build_outlined,
-      statusColor: AppColors.csunRed,
-      statusBackground: Color(0xFFFFE0E4),
-    ),
-    _ActivityEntry(
-      title: 'Laptop LPT-024 checked out',
-      detail: 'Due Oct 21, 2026',
-      type: 'Checkout',
-      status: 'Checked out',
-      timestamp: '1 hr ago',
-      icon: Icons.inventory_2_outlined,
-      statusColor: Color(0xFF1377C9),
-      statusBackground: Color(0xFFDCEEFF),
-    ),
-  ];
+  int _page = 0;
 
   @override
   void dispose() {
@@ -346,29 +413,34 @@ class _ActivityListState extends State<_ActivityList> {
     super.dispose();
   }
 
-  List<_ActivityEntry> get _filteredActivities {
+  List<ActivityEntry> _filter(List<ActivityEntry> all) {
     final query = _searchController.text.trim().toLowerCase();
+    final now = DateTime.now();
+    final cutoff = switch (_selectedRange) {
+      'Last 7 days' => now.subtract(const Duration(days: 7)),
+      'Last 30 days' => now.subtract(const Duration(days: 30)),
+      _ => null, // All time
+    };
 
-    return _activities.where((activity) {
-      final matchesSearch =
-          query.isEmpty ||
-          '${activity.title} ${activity.detail}'.toLowerCase().contains(query);
+    return all.where((e) {
+      final matchesSearch = query.isEmpty ||
+          '${e.title} ${e.detail}'.toLowerCase().contains(query);
       final matchesType =
-          _selectedType == 'All activity types' ||
-          activity.type == _selectedType;
+          _selectedType == 'All activity types' || e.type == _selectedType;
       final matchesStatus =
-          _selectedStatus == 'All statuses' ||
-          activity.status == _selectedStatus;
-
-      return matchesSearch && matchesType && matchesStatus;
+          _selectedStatus == 'All statuses' || e.status == _selectedStatus;
+      final matchesRange = cutoff == null || e.at.isAfter(cutoff);
+      return matchesSearch && matchesType && matchesStatus && matchesRange;
     }).toList();
   }
 
   void _updateFilter(VoidCallback update) {
-    setState(update);
+    setState(() {
+      update();
+      _page = 0;
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-
       Scrollable.ensureVisible(
         context,
         alignment: 0,
@@ -389,12 +461,9 @@ class _ActivityListState extends State<_ActivityList> {
 
   @override
   Widget build(BuildContext context) {
-    final activities = _filteredActivities;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // header for the recent activity section, which includes a title and a button to view all activities
         Row(
           children: [
             Expanded(
@@ -421,43 +490,144 @@ class _ActivityListState extends State<_ActivityList> {
           selectedStatus: _selectedStatus,
           selectedRange: _selectedRange,
           onSearchChanged: (_) => _updateFilter(() {}),
-          onTypeChanged: (value) => _updateFilter(() => _selectedType = value!),
-          onStatusChanged: (value) =>
-              _updateFilter(() => _selectedStatus = value!),
-          onRangeChanged: (value) =>
-              _updateFilter(() => _selectedRange = value!),
+          onTypeChanged: (v) => _updateFilter(() => _selectedType = v!),
+          onStatusChanged: (v) => _updateFilter(() => _selectedStatus = v!),
+          onRangeChanged: (v) => _updateFilter(() => _selectedRange = v!),
           onClear: _clearFilters,
         ),
         const SizedBox(height: 18),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            return _ActivityTable(
-              activities: activities,
-              isWide: constraints.maxWidth >= 700,
+        StreamBuilder<List<ActivityEntry>>(
+          stream: _stream,
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Text('Could not load activity.\n${snapshot.error}');
+            }
+            if (!snapshot.hasData) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 32),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+
+            final all = snapshot.data!;
+            final filtered = _filter(all);
+
+            final pageCount =
+                filtered.isEmpty ? 1 : (filtered.length / _pageSize).ceil();
+            final page = _page.clamp(0, pageCount - 1);
+            final start = page * _pageSize;
+            final end = (start + _pageSize).clamp(0, filtered.length);
+            final pageItems = filtered.sublist(start, end);
+
+            // Show at most 5 page buttons, centered on the current page.
+            final first =
+                (page - 2).clamp(0, (pageCount - 5).clamp(0, pageCount));
+            final last = (first + 5).clamp(0, pageCount);
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (filtered.isEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 40),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: AppColors.border),
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: Center(
+                      child: Text(
+                        all.isEmpty
+                            ? 'No activity yet. Checkouts and returns will appear here.'
+                            : 'No activity matches your filters.',
+                        style: const TextStyle(color: AppColors.muted),
+                      ),
+                    ),
+                  )
+                else
+                  LayoutBuilder(
+                    builder: (context, constraints) => _ActivityTable(
+                      activities: [for (final e in pageItems) _toUi(e)],
+                      isWide: constraints.maxWidth >= 700,
+                    ),
+                  ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Text(
+                      'Showing ${pageItems.length} of ${filtered.length} activities',
+                      style:
+                          const TextStyle(color: AppColors.muted, fontSize: 12),
+                    ),
+                    const Spacer(),
+                    _ActivityPageButton(
+                      icon: Icons.chevron_left,
+                      onPressed: page > 0
+                          ? () => setState(() => _page = page - 1)
+                          : null,
+                    ),
+                    for (var i = first; i < last; i++)
+                      _ActivityPageButton(
+                        label: '${i + 1}',
+                        active: i == page,
+                        onPressed: () => setState(() => _page = i),
+                      ),
+                    _ActivityPageButton(
+                      icon: Icons.chevron_right,
+                      onPressed: page < pageCount - 1
+                          ? () => setState(() => _page = page + 1)
+                          : null,
+                    ),
+                  ],
+                ),
+              ],
             );
           },
-        ),
-        const SizedBox(height: 10),
-        Row(
-          // controls for switching between pages of activity entries, which includes a label showing the number of activities being displayed and buttons for navigating to different pages
-          children: [
-            Text(
-              'Showing ${activities.length} of ${activities.length} activities',
-              style: const TextStyle(color: AppColors.muted, fontSize: 12),
-            ),
-            const Spacer(),
-            const _ActivityPageButton(icon: Icons.chevron_left),
-            const _ActivityPageButton(label: '1', active: true),
-            const _ActivityPageButton(label: '2'),
-            const _ActivityPageButton(label: '3'),
-            const _ActivityPageButton(label: '4'),
-            const _ActivityPageButton(label: '5'),
-            const _ActivityPageButton(icon: Icons.chevron_right),
-          ],
         ),
       ],
     );
   }
+}
+
+// Maps a Firestore activity entry onto the row widgets' display model.
+_ActivityEntry _toUi(ActivityEntry e) {
+  final icon = switch (e.type) {
+    'Return' => Icons.assignment_return_outlined,
+    'Checkout' => Icons.inventory_2_outlined,
+    'Reservation' => Icons.event_outlined,
+    'Maintenance' => Icons.build_outlined,
+    _ => Icons.history,
+  };
+  final (fg, bg) = switch (e.status) {
+    'Completed' => (const Color(0xFF247A4A), const Color(0xFFDDF3E5)),
+    'Pickup pending' => (const Color(0xFFB36B00), const Color(0xFFFFEBCB)),
+    'Damaged' || 'Needs attention' => (AppColors.csunRed, const Color(0xFFFFE0E4)),
+    'Checked out' => (const Color(0xFF1377C9), const Color(0xFFDCEEFF)),
+    _ => (AppColors.muted, const Color(0xFFE9EDF2)),
+  };
+
+  return _ActivityEntry(
+    title: e.title,
+    detail: e.detail,
+    type: e.type,
+    status: e.status,
+    timestamp: _timeAgo(e.at),
+    icon: icon,
+    statusColor: fg,
+    statusBackground: bg,
+  );
+}
+
+String _timeAgo(DateTime t) {
+  final diff = DateTime.now().difference(t);
+  if (diff.inMinutes < 1) return 'Just now';
+  if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
+  if (diff.inHours < 24) return '${diff.inHours} hr ago';
+  if (diff.inDays < 7) {
+    return '${diff.inDays} day${diff.inDays == 1 ? '' : 's'} ago';
+  }
+  return ActivityService.shortDate(t);
 }
 
 class _ActivityFilters extends StatelessWidget {
@@ -485,7 +655,6 @@ class _ActivityFilters extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // search and filter controls for the recent activity section, which includes a search bar and dropdowns for filtering by activity type, status, and date range
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -511,7 +680,6 @@ class _ActivityFilters extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             Expanded(
-              // this is for drop down filters
               child: _ActivityDropdown(
                 value: selectedType,
                 items: const [
@@ -590,6 +758,8 @@ class _ActivityDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DropdownButtonFormField<String>(
+      // Key forces a rebuild so "Clear filters" resets the displayed value.
+      key: ValueKey(value),
       initialValue: value,
       isExpanded: true,
       decoration: const InputDecoration(
@@ -694,7 +864,7 @@ class _ActivityWideRow extends StatelessWidget {
                 child: _ActivityPill(
                   label: activity.type,
                   foreground: AppColors.muted,
-                  background: Color(0xFFE9EDF2),
+                  background: const Color(0xFFE9EDF2),
                 ),
               ),
             ),
@@ -703,7 +873,6 @@ class _ActivityWideRow extends StatelessWidget {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: _ActivityPill(
-                  // actovoty pills are for easy identification of the activity type and status, with different colors for each status
                   label: activity.status,
                   foreground: activity.statusColor,
                   background: activity.statusBackground,
@@ -718,7 +887,7 @@ class _ActivityWideRow extends StatelessWidget {
               ),
             ),
             const SizedBox(
-              // chevron icon would take the user to the activity details page, which is not implemented yet
+              // Would open an activity details page (not implemented yet).
               width: 20,
               child: Icon(Icons.chevron_right, color: AppColors.muted),
             ),
@@ -757,7 +926,7 @@ class _ActivityCompactRow extends StatelessWidget {
               _ActivityPill(
                 label: activity.type,
                 foreground: AppColors.muted,
-                background: Color(0xFFE9EDF2),
+                background: const Color(0xFFE9EDF2),
               ),
               const SizedBox(width: 8),
               _ActivityPill(
@@ -856,6 +1025,7 @@ class _ActivityPill extends StatelessWidget {
   }
 }
 
+/// Display model for one table row (built from a Firestore [ActivityEntry]).
 class _ActivityEntry {
   const _ActivityEntry({
     required this.title,
@@ -879,11 +1049,17 @@ class _ActivityEntry {
 }
 
 class _ActivityPageButton extends StatelessWidget {
-  const _ActivityPageButton({this.label, this.icon, this.active = false});
+  const _ActivityPageButton({
+    this.label,
+    this.icon,
+    this.active = false,
+    this.onPressed,
+  });
 
   final String? label;
   final IconData? icon;
   final bool active;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -893,7 +1069,7 @@ class _ActivityPageButton extends StatelessWidget {
         width: 28,
         height: 28,
         child: OutlinedButton(
-          onPressed: () {},
+          onPressed: onPressed,
           style: OutlinedButton.styleFrom(
             padding: EdgeInsets.zero,
             minimumSize: Size.zero,

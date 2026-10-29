@@ -5,18 +5,15 @@ import '../../data/mock_data.dart';
 import '../../models/equipment.dart';
 import '../../services/reservation_service.dart';
 import '../../widgets/equipment_card.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class EquipmentCatalogScreen extends StatefulWidget {
   const EquipmentCatalogScreen({
     super.key,
     this.reservationService,
-    this.studentUid = 'prototype-student',
   });
 
   final ReservationService? reservationService;
-
-  // Temporary fallback until the authentication work passes the signed-in UID.
-  final String studentUid;
 
   @override
   State<EquipmentCatalogScreen> createState() => _EquipmentCatalogScreenState();
@@ -99,7 +96,7 @@ class _EquipmentCatalogScreenState extends State<EquipmentCatalogScreen> {
 
     try {
       final reservation = await _reservationService.createReservation(
-        studentUid: widget.studentUid,
+        studentUid: FirebaseAuth.instance.currentUser!.uid,
         equipmentId: equipment.id,
         equipmentName: equipment.name,
       );
