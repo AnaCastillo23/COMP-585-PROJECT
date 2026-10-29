@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
@@ -5,15 +7,19 @@ import '../../data/mock_data.dart';
 import '../../models/equipment.dart';
 import '../../services/reservation_service.dart';
 import '../../widgets/equipment_card.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../widgets/equipment_reservation_flow.dart';
 
 class EquipmentCatalogScreen extends StatefulWidget {
   const EquipmentCatalogScreen({
     super.key,
     this.reservationService,
+    this.studentUid = 'prototype-student',
   });
 
   final ReservationService? reservationService;
+
+  // Temporary fallback until authentication passes the signed-in UID.
+  final String studentUid;
 
   @override
   State<EquipmentCatalogScreen> createState() => _EquipmentCatalogScreenState();
@@ -24,7 +30,6 @@ class _EquipmentCatalogScreenState extends State<EquipmentCatalogScreen> {
 
   String _query = '';
   String _category = 'All';
-  String? _reservingEquipmentId;
 
   @override
   void initState() {
@@ -52,89 +57,15 @@ class _EquipmentCatalogScreenState extends State<EquipmentCatalogScreen> {
     }).toList();
   }
 
-  Future<void> _reserve(Equipment equipment) async {
-    if (equipment.availableUnits <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('This equipment is currently unavailable.'),
-        ),
-      );
-      return;
-    }
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: Text('Reserve ${equipment.name}?'),
-          content: const Text(
-            'The equipment will be held for pickup for 24 hours. '
-            'If it is not picked up during that time, it becomes available '
-            'again.\n\n'
-            'The two-week rental period begins only after staff completes '
-            'the checkout.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Confirm reservation'),
-            ),
-          ],
-        );
-      },
+  void _requestEquipment(Equipment equipment) {
+    unawaited(
+      showEquipmentReservationFlow(
+        context: context,
+        equipment: equipment,
+        reservationService: _reservationService,
+        studentUid: widget.studentUid,
+      ),
     );
-
-    if (!mounted || confirmed != true) {
-      return;
-    }
-
-    setState(() => _reservingEquipmentId = equipment.id);
-
-    try {
-      final reservation = await _reservationService.createReservation(
-        studentUid: FirebaseAuth.instance.currentUser!.uid,
-        equipmentId: equipment.id,
-        equipmentName: equipment.name,
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '${equipment.name} reserved. '
-            'Pick it up by ${_formatDeadline(reservation.pickupDeadline)}.',
-          ),
-        ),
-      );
-    } on ReservationServiceException catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error.message)));
-    } finally {
-      if (mounted) {
-        setState(() => _reservingEquipmentId = null);
-      }
-    }
-  }
-
-  String _formatDeadline(DateTime deadline) {
-    final localDeadline = deadline.toLocal();
-    final hour = localDeadline.hour % 12 == 0 ? 12 : localDeadline.hour % 12;
-    final minute = localDeadline.minute.toString().padLeft(2, '0');
-    final period = localDeadline.hour >= 12 ? 'PM' : 'AM';
-
-    return '${localDeadline.month}/${localDeadline.day}/${localDeadline.year} '
-        'at $hour:$minute $period';
   }
 
   @override
@@ -213,18 +144,14 @@ class _EquipmentCatalogScreenState extends State<EquipmentCatalogScreen> {
                     crossAxisCount: columns,
                     crossAxisSpacing: 16,
                     mainAxisSpacing: 16,
-                    mainAxisExtent: 320,
+                    mainAxisExtent: 336,
                   ),
                   itemBuilder: (context, index) {
                     final equipment = filtered[index];
 
                     return EquipmentCard(
                       equipment: equipment,
-                      onReserve: () {
-                        if (_reservingEquipmentId == null) {
-                          _reserve(equipment);
-                        }
-                      },
+                      onReserve: () => _requestEquipment(equipment),
                     );
                   },
                 ),

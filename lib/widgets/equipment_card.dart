@@ -85,7 +85,8 @@ class EquipmentCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           available
-                              ? '${equipment.availableUnits} of ${equipment.totalUnits} available'
+                              ? '${equipment.availableUnits} of '
+                                    '${equipment.totalUnits} available'
                               : 'Currently unavailable',
                           style: const TextStyle(
                             fontSize: 12,
@@ -94,8 +95,15 @@ class EquipmentCard extends StatelessWidget {
                         ),
                       ),
                       TextButton(
-                        onPressed: available ? onReserve : null,
-                        child: const Text('Reserve'),
+                        onPressed: onReserve,
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        child: Text(
+                          available ? 'Reserve' : 'Join waitlist',
+                          textAlign: TextAlign.center,
+                        ),
                       ),
                     ],
                   ),
