@@ -10,6 +10,8 @@ import '../screens/student/my_rentals.dart';
 import '../screens/student/student_dashboard.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/utils/user_display.dart';
+import '../screens/staff/manage_equipment_screen.dart';
+import '../screens/staff/checkout_screen.dart';
 
 class ResponsiveAppShell extends StatefulWidget {
   const ResponsiveAppShell({
@@ -86,20 +88,17 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
     }
 
     return switch (_selectedIndex) {
-      0 => const StaffDashboardScreen(),
-      1 => const _ComingSoonScreen(
-        title: 'Inventory Management',
-        description: 'Add, edit, filter, and inspect university equipment.',
-        icon: Icons.inventory_2_outlined,
-      ),
-      2 => const _ComingSoonScreen(
-        title: 'Checkout and Return',
-        description: 'Scan a student and an equipment QR code to complete staff-assisted transactions.',
-        icon: Icons.qr_code_scanner,
-      ),
-      _ => const StaffDashboardScreen(),
-    };
-  }
+    0 => StaffDashboardScreen(
+      onViewInventory: () => setState(() {
+        _selectedIndex = 1;
+        _showProfile = false;
+      }),
+    ),
+    1 => const ManageEquipmentScreen(),
+    2 => const CheckoutsScreen(),
+    _ => const StaffDashboardScreen(),
+  };
+}
 
   static void _noop() {}
 
@@ -476,7 +475,7 @@ class _TopBar extends StatelessWidget {
   }
 }
 
-class _ComingSoonScreen extends StatelessWidget {
+/*class _ComingSoonScreen extends StatelessWidget {
   const _ComingSoonScreen({
     required this.title,
     required this.description,
@@ -517,7 +516,7 @@ class _ComingSoonScreen extends StatelessWidget {
       ),
     );
   }
-}
+} */
 
 class _Destination {
   const _Destination(this.label, this.icon, this.selectedIcon);
