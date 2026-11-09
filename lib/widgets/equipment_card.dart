@@ -8,10 +8,12 @@ class EquipmentCard extends StatelessWidget {
     super.key,
     required this.equipment,
     required this.onReserve,
+    this.isFeatured = false,
   });
 
   final Equipment equipment;
   final VoidCallback onReserve;
+  final bool isFeatured;
 
   @override
   Widget build(BuildContext context) {
@@ -20,8 +22,9 @@ class EquipmentCard extends StatelessWidget {
     return Card(
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
-      elevation: 1,
-      shadowColor: Colors.black.withValues(alpha: 0.12),
+      color: isFeatured ? const Color(0xFFFCFCFD) : null,
+      elevation: isFeatured ? 2 : 1,
+      shadowColor: Colors.black.withValues(alpha: isFeatured ? 0.1 : 0.12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: const BorderSide(color: AppColors.border),

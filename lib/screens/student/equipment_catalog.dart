@@ -152,6 +152,7 @@ class _EquipmentCatalogScreenState extends State<EquipmentCatalogScreen> {
                     return EquipmentCard(
                       equipment: equipment,
                       onReserve: () => _requestEquipment(equipment),
+                      isFeatured: true,
                     );
                   },
                 ),

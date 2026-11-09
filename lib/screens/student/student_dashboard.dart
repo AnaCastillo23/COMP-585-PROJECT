@@ -272,6 +272,7 @@ class _DashboardContent extends StatelessWidget {
                 return EquipmentCard(
                   equipment: equipment,
                   onReserve: () => onRequestEquipment(equipment),
+                  isFeatured: true,
                 );
               },
             );

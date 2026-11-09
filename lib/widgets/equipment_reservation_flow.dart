@@ -15,6 +15,9 @@ Future<void> showEquipmentReservationFlow({
     context: context,
     builder: (dialogContext) {
       return AlertDialog(
+        backgroundColor: const Color(0xFFFCFCFD),
+        elevation: 2,
+        shadowColor: Colors.black.withValues(alpha: 0.1),
         title: Text(
           available
               ? 'Reserve ${equipment.name}?'
