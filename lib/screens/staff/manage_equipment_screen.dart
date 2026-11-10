@@ -7,23 +7,20 @@ import '../../widgets/equipment_image.dart';
 import 'equipment_form_dialog.dart';
 
 (Color, Color) _statusColors(EquipmentStatus status) => switch (status) {
-      EquipmentStatus.available => (
-          const Color(0xFF247A4A),
-          const Color(0xFFDDF3E5),
-        ),
-      EquipmentStatus.unavailable => (
-          AppColors.csunRed,
-          const Color(0xFFFFE0E4),
-        ),
-      EquipmentStatus.maintenance => (
-          const Color(0xFFB36B00),
-          const Color(0xFFFFEBCB),
-        ),
-        EquipmentStatus.reserved => (
-          const Color(0xFF8A5BB5),
-          const Color(0xFFEFE3FA),
-),
-    };
+  EquipmentStatus.available => (
+    const Color(0xFF247A4A),
+    const Color(0xFFDDF3E5),
+  ),
+  EquipmentStatus.unavailable => (AppColors.csunRed, const Color(0xFFFFE0E4)),
+  EquipmentStatus.maintenance => (
+    const Color(0xFFB36B00),
+    const Color(0xFFFFEBCB),
+  ),
+  EquipmentStatus.reserved => (
+    const Color(0xFF8A5BB5),
+    const Color(0xFFEFE3FA),
+  ),
+};
 
 class ManageEquipmentScreen extends StatefulWidget {
   const ManageEquipmentScreen({super.key, this.equipmentService});
@@ -57,39 +54,40 @@ class _ManageEquipmentScreenState extends State<ManageEquipmentScreen> {
   }
 
   // Returns the unit ID if the search text exactly matches one, else null.
-String? _exactUnitId(List<Equipment> all) {
-  final q = _searchController.text.trim().toLowerCase();
-  if (q.isEmpty) return null;
+  String? _exactUnitId(List<Equipment> all) {
+    final q = _searchController.text.trim().toLowerCase();
+    if (q.isEmpty) return null;
 
-  for (final item in all) {
-    for (final u in item.units) {
-      if (u.id.toLowerCase() == q) return u.id;
+    for (final item in all) {
+      for (final u in item.units) {
+        if (u.id.toLowerCase() == q) return u.id;
+      }
     }
+    return null;
   }
-  return null;
-}
 
-List<Equipment> _filter(List<Equipment> all) {
-  final q = _searchController.text.trim().toLowerCase();
-  final exactId = _exactUnitId(all);
-  bool statusOk(EquipmentUnit u) =>
-      _status == _allStatuses || u.status.label == _status;
+  List<Equipment> _filter(List<Equipment> all) {
+    final q = _searchController.text.trim().toLowerCase();
+    final exactId = _exactUnitId(all);
+    bool statusOk(EquipmentUnit u) =>
+        _status == _allStatuses || u.status.label == _status;
 
-  return all.where((item) {
-    final matchesCategory =
-        _category == _allCategories || item.category == _category;
-    final matchesStatus = item.units.any(statusOk);
+    return all.where((item) {
+      final matchesCategory =
+          _category == _allCategories || item.category == _category;
+      final matchesStatus = item.units.any(statusOk);
 
-    final matchesSearch = q.isEmpty ||
-        (exactId != null
-            ? item.units.any((u) => u.id == exactId && statusOk(u))
-            : item.name.toLowerCase().contains(q) ||
-                item.category.toLowerCase().contains(q) ||
-                item.units.any((u) => u.id.toLowerCase().contains(q)));
+      final matchesSearch =
+          q.isEmpty ||
+          (exactId != null
+              ? item.units.any((u) => u.id == exactId && statusOk(u))
+              : item.name.toLowerCase().contains(q) ||
+                    item.category.toLowerCase().contains(q) ||
+                    item.units.any((u) => u.id.toLowerCase().contains(q)));
 
-    return matchesCategory && matchesStatus && matchesSearch;
-  }).toList();
-}
+      return matchesCategory && matchesStatus && matchesSearch;
+    }).toList();
+  }
 
   // Any filter change sends the user back to page 1.
   void _updateFilter(VoidCallback update) {
@@ -111,13 +109,58 @@ List<Equipment> _filter(List<Equipment> all) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
-  Future<void> _setStatus(EquipmentUnit unit, EquipmentStatus status) async {
-    try {
-      await _service.setUnitStatus(unit.id, status);
-    } catch (e) {
-      if (!mounted) return;
-      _showMessage('Could not update ${unit.id}: $e');
-    }
+  Future<void> _showItemDetails(Equipment item) {
+    return showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFFFFFEFC),
+        title: Text(item.name),
+        content: SizedBox(
+          width: 440,
+          child: item.units.isEmpty
+              ? const Text('This item has no units.')
+              : SingleChildScrollView(
+                  child: DataTable(
+                    columns: const [
+                      DataColumn(label: Text('UNIT ID')),
+                      DataColumn(label: Text('STATUS')),
+                    ],
+                    rows: [
+                      for (final unit in item.units)
+                        DataRow(
+                          cells: [
+                            DataCell(
+                              Text(
+                                unit.id,
+                                style: const TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            DataCell(
+                              Text(
+                                unit.status.label,
+                                style: TextStyle(
+                                  color: _statusColors(unit.status).$1,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _delete(Equipment item) async {
@@ -182,8 +225,9 @@ List<Equipment> _filter(List<Equipment> all) {
               : EquipmentStatus.values.firstWhere((s) => s.label == _status);
 
           // Pagination
-          final pageCount =
-              filtered.isEmpty ? 1 : (filtered.length / _pageSize).ceil();
+          final pageCount = filtered.isEmpty
+              ? 1
+              : (filtered.length / _pageSize).ceil();
           final page = _page.clamp(0, pageCount - 1);
           final start = page * _pageSize;
           final end = (start + _pageSize).clamp(0, filtered.length);
@@ -232,8 +276,7 @@ List<Equipment> _filter(List<Equipment> all) {
                     for (final s in EquipmentStatus.values) s.label,
                   ],
                   onSearchChanged: (_) => _updateFilter(() {}),
-                  onCategoryChanged: (v) =>
-                      _updateFilter(() => _category = v!),
+                  onCategoryChanged: (v) => _updateFilter(() => _category = v!),
                   onStatusChanged: (v) => _updateFilter(() => _status = v!),
                   onClear: _clearFilters,
                 ),
@@ -262,7 +305,7 @@ List<Equipment> _filter(List<Equipment> all) {
                           existing: item,
                         ),
                         onDelete: _delete,
-                        onUnitStatus: _setStatus,
+                        onItemNameTap: _showItemDetails,
                       );
                     },
                   ),
@@ -274,14 +317,17 @@ List<Equipment> _filter(List<Equipment> all) {
                     Text(
                       'Showing ${pageItems.length} of ${filtered.length} items'
                       '${filtered.length != all.length ? ' (${all.length} total)' : ''}',
-                      style:
-                          const TextStyle(color: AppColors.muted, fontSize: 12),
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 12,
+                      ),
                     ),
                     const Spacer(),
                     _PageButton(
                       icon: Icons.chevron_left,
-                      onPressed:
-                          page > 0 ? () => setState(() => _page = page - 1) : null,
+                      onPressed: page > 0
+                          ? () => setState(() => _page = page - 1)
+                          : null,
                     ),
                     for (var i = 0; i < pageCount; i++)
                       _PageButton(
@@ -445,16 +491,18 @@ class _InventoryTable extends StatelessWidget {
     required this.statusFilter,
     required this.onEdit,
     required this.onDelete,
-    required this.onUnitStatus,
+    required this.onItemNameTap,
   });
 
   final List<Equipment> items;
   final bool isWide;
-  final String? onlyUnitId; // if non-null, only this unit is shown (search match)
-  final EquipmentStatus? statusFilter; // if non-null, only units with this status are shown
+  final String?
+  onlyUnitId; // if non-null, only this unit is shown (search match)
+  final EquipmentStatus?
+  statusFilter; // if non-null, only units with this status are shown
   final void Function(Equipment item) onEdit;
   final void Function(Equipment item) onDelete;
-  final void Function(EquipmentUnit unit, EquipmentStatus status) onUnitStatus;
+  final void Function(Equipment item) onItemNameTap;
 
   @override
   Widget build(BuildContext context) {
@@ -476,7 +524,7 @@ class _InventoryTable extends StatelessWidget {
               isWide: isWide,
               onEdit: () => onEdit(items[i]),
               onDelete: () => onDelete(items[i]),
-              onUnitStatus: onUnitStatus,
+              onItemNameTap: () => onItemNameTap(items[i]),
             ),
             if (i != items.length - 1)
               const Divider(height: 1, color: AppColors.border),
@@ -536,45 +584,47 @@ class _InventoryRow extends StatelessWidget {
     required this.statusFilter,
     required this.onEdit,
     required this.onDelete,
-    required this.onUnitStatus,
+    required this.onItemNameTap,
   });
 
   final Equipment item;
   final bool isWide;
   final String? onlyUnitId; // non-null = show just this unit
-  final EquipmentStatus? statusFilter; // non-null = show only units with this status
+  final EquipmentStatus?
+  statusFilter; // non-null = show only units with this status
   final VoidCallback onEdit;
   final VoidCallback onDelete;
-  final void Function(EquipmentUnit unit, EquipmentStatus status) onUnitStatus;
+  final VoidCallback onItemNameTap;
 
-  
   bool get _isFiltered => onlyUnitId != null || statusFilter != null;
 
   // Units this row displays: narrowed by exact ID and/or status filter.
   List<EquipmentUnit> get _units => item.units
-      .where((u) =>
-          (onlyUnitId == null || u.id == onlyUnitId) &&
-          (statusFilter == null || u.status == statusFilter))
+      .where(
+        (u) =>
+            (onlyUnitId == null || u.id == onlyUnitId) &&
+            (statusFilter == null || u.status == statusFilter),
+      )
       .toList();
 
   int _count(EquipmentStatus s) => _units.where((u) => u.status == s).length;
 
   List<Widget> _statusPills() => [
-        for (final s in EquipmentStatus.values)
-          if (_count(s) > 0)
-            _Pill(
-              label: '${_count(s)} ${s.label.toLowerCase()}',
-              foreground: _statusColors(s).$1,
-              background: _statusColors(s).$2,
-            ),
-      ];
+    for (final s in EquipmentStatus.values)
+      if (_count(s) > 0)
+        _Pill(
+          label: '${_count(s)} ${s.label.toLowerCase()}',
+          foreground: _statusColors(s).$1,
+          background: _statusColors(s).$2,
+        ),
+  ];
 
   @override
   Widget build(BuildContext context) {
     final units = _units;
     final availableText = _isFiltered
-    ? '${units.length} of ${item.totalUnits} units'
-    : '${_count(EquipmentStatus.available)} of ${units.length} available';
+        ? '${units.length} of ${item.totalUnits} units'
+        : '${_count(EquipmentStatus.available)} of ${units.length} available';
 
     final statusArea = units.isEmpty
         ? const Text(
@@ -583,117 +633,123 @@ class _InventoryRow extends StatelessWidget {
           )
         : Wrap(spacing: 6, runSpacing: 4, children: _statusPills());
 
-    return Theme(
-      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-      child: ExpansionTile(
-        key: ValueKey(
-          '${item.id}-${onlyUnitId ?? 'all'}-${statusFilter?.name ?? 'any'}',
-        ),
-        initiallyExpanded: _isFiltered,
-        tilePadding: EdgeInsets.symmetric(
-          horizontal: isWide ? 18 : 14,
-          vertical: 4,
-        ),
-        childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 14),
-        expandedCrossAxisAlignment: CrossAxisAlignment.start,
-        title: isWide
-            ? Row(
-                children: [
-                  Expanded(flex: 5, child: _ItemSummary(item: item)),
-                  Expanded(
-                    flex: 2,
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: _Pill(
-                        label: item.category,
-                        foreground: AppColors.muted,
-                        background: const Color(0xFFE9EDF2),
-                      ),
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: isWide ? 18 : 14, vertical: 4),
+      child: isWide
+          ? Row(
+              children: [
+                Expanded(
+                  flex: 5,
+                  child: _ItemSummary(item: item, onNameTap: onItemNameTap),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: _Pill(
+                      label: item.category,
+                      foreground: AppColors.muted,
+                      background: const Color(0xFFE9EDF2),
                     ),
                   ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    availableText,
+                    style: const TextStyle(
+                      color: AppColors.muted,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+                Expanded(flex: 4, child: statusArea),
+                _ItemActions(onEdit: onEdit, onDelete: onDelete),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ItemSummary(item: item, onNameTap: onItemNameTap),
+                    ),
+                    _ItemActions(onEdit: onEdit, onDelete: onDelete),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    _Pill(
+                      label: item.category,
+                      foreground: AppColors.muted,
+                      background: const Color(0xFFE9EDF2),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
                       availableText,
                       style: const TextStyle(
-                          color: AppColors.muted, fontSize: 12),
+                        color: AppColors.muted,
+                        fontSize: 12,
+                      ),
                     ),
-                  ),
-                  Expanded(flex: 4, child: statusArea),
-                ],
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _ItemSummary(item: item),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      _Pill(
-                        label: item.category,
-                        foreground: AppColors.muted,
-                        background: const Color(0xFFE9EDF2),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        availableText,
-                        style: const TextStyle(
-                            color: AppColors.muted, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  statusArea,
-                ],
-              ),
-        children: [
-          const Text(
-            'Units — tap an ID to change its status',
-            style: TextStyle(color: AppColors.muted, fontSize: 12),
-          ),
-          const SizedBox(height: 8),
-          if (units.isEmpty)
-            const Text('This item has no units.')
-          else
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final unit in units)
-                  _UnitChip(
-                    unit: unit,
-                    onChanged: (status) => onUnitStatus(unit, status),
-                  ),
+                  ],
+                ),
               ],
             ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              OutlinedButton.icon(
-                onPressed: onEdit,
-                icon: const Icon(Icons.edit_outlined, size: 18),
-                label: const Text('Edit'),
-              ),
-              const SizedBox(width: 8),
-              TextButton.icon(
-                onPressed: onDelete,
-                style: TextButton.styleFrom(foregroundColor: AppColors.csunRed),
-                icon: const Icon(Icons.delete_outline, size: 18),
-                label: const Text('Delete'),
-              ),
-            ],
+    );
+  }
+}
+
+class _ItemActions extends StatelessWidget {
+  const _ItemActions({required this.onEdit, required this.onDelete});
+
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<String>(
+      tooltip: 'Item actions',
+      color: Colors.white,
+      onSelected: (action) {
+        switch (action) {
+          case 'edit':
+            onEdit();
+          case 'delete':
+            onDelete();
+        }
+      },
+      itemBuilder: (context) => const [
+        PopupMenuItem(
+          value: 'edit',
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.edit_outlined),
+            title: Text('Edit item'),
           ),
-        ],
-      ),
+        ),
+        PopupMenuItem(
+          value: 'delete',
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.delete_outline),
+            title: Text('Delete item'),
+          ),
+        ),
+      ],
+      icon: const Icon(Icons.more_vert),
     );
   }
 }
 
 /// Image + name + description (equivalent of _ActivitySummary).
 class _ItemSummary extends StatelessWidget {
-  const _ItemSummary({required this.item});
+  const _ItemSummary({required this.item, required this.onNameTap});
 
   final Equipment item;
+  final VoidCallback onNameTap;
 
   @override
   Widget build(BuildContext context) {
@@ -713,13 +769,25 @@ class _ItemSummary extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                item.name,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppColors.ink,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
+              InkWell(
+                onTap: onNameTap,
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 2,
+                    vertical: 1,
+                  ),
+                  child: Text(
+                    item.name,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.ink,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      decoration: TextDecoration.underline,
+                      decorationColor: AppColors.muted,
+                    ),
+                  ),
                 ),
               ),
               if (item.description.isNotEmpty) ...[
@@ -766,55 +834,6 @@ class _Pill extends StatelessWidget {
           color: foreground,
           fontSize: 10,
           fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
-class _UnitChip extends StatelessWidget {
-  const _UnitChip({required this.unit, required this.onChanged});
-
-  final EquipmentUnit unit;
-  final ValueChanged<EquipmentStatus> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final (foreground, background) = _statusColors(unit.status);
-
-    return PopupMenuButton<EquipmentStatus>(
-      tooltip: 'Change status',
-      initialValue: unit.status,
-      onSelected: onChanged,
-      itemBuilder: (_) => [
-        for (final s in EquipmentStatus.values)
-          PopupMenuItem(value: s, child: Text(s.label)),
-      ],
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: background,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              unit.id,
-              style: TextStyle(
-                color: foreground,
-                fontFamily: 'monospace',
-                fontWeight: FontWeight.w700,
-                fontSize: 12,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              unit.status.label,
-              style: TextStyle(color: foreground, fontSize: 11),
-            ),
-            Icon(Icons.arrow_drop_down, size: 16, color: foreground),
-          ],
         ),
       ),
     );
@@ -885,8 +904,11 @@ class _EmptyState extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const Icon(Icons.inventory_2_outlined,
-              size: 44, color: AppColors.muted),
+          const Icon(
+            Icons.inventory_2_outlined,
+            size: 44,
+            color: AppColors.muted,
+          ),
           const SizedBox(height: 12),
           Text(
             'No equipment yet',

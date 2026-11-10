@@ -34,15 +34,17 @@ class _EquipmentFormDialogState extends State<_EquipmentFormDialog> {
   final _picker = ImagePicker();
 
   late final _name = TextEditingController(text: widget.existing?.name);
-  late final _description =
-      TextEditingController(text: widget.existing?.description);
+  late final _description = TextEditingController(
+    text: widget.existing?.description,
+  );
   late final _units = TextEditingController(
-      text: (widget.existing?.totalUnits ?? 1).toString());
+    text: (widget.existing?.totalUnits ?? 1).toString(),
+  );
 
   late String _category =
       Equipment.categories.contains(widget.existing?.category)
-          ? widget.existing!.category
-          : Equipment.categories.first;
+      ? widget.existing!.category
+      : Equipment.categories.first;
 
   // Applies to units created by this save.
   EquipmentStatus _status = EquipmentStatus.available;
@@ -143,7 +145,7 @@ class _EquipmentFormDialogState extends State<_EquipmentFormDialog> {
           content: Text(
             _isNew
                 ? 'Added ${item.name} with $count '
-                    'unit${count == 1 ? '' : 's'}'
+                      'unit${count == 1 ? '' : 's'}'
                 : 'Saved ${item.name}',
           ),
         ),
@@ -184,6 +186,7 @@ class _EquipmentFormDialogState extends State<_EquipmentFormDialog> {
     final hasImage = _newImage != null || widget.existing?.imageBytes != null;
 
     return AlertDialog(
+      backgroundColor: Colors.white,
       title: Text(_isNew ? 'Add equipment' : 'Edit equipment'),
       content: SizedBox(
         width: 420,
@@ -233,7 +236,7 @@ class _EquipmentFormDialogState extends State<_EquipmentFormDialog> {
                     helperText: _isNew
                         ? 'Each unit gets its own ID (EQ-0000)'
                         : 'Raising adds units with new IDs. Lowering removes '
-                            'units that are not available first.',
+                              'units that are not available first.',
                     helperMaxLines: 3,
                   ),
                   validator: (v) {
@@ -244,47 +247,6 @@ class _EquipmentFormDialogState extends State<_EquipmentFormDialog> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<EquipmentStatus>(
-                  initialValue: _status,
-                  decoration: InputDecoration(
-                    labelText: 'Status of new units',
-                    helperText: _isNew
-                        ? null
-                        : 'Change an existing unit from the inventory screen',
-                    helperMaxLines: 2,
-                  ),
-                  items: [
-                    for (final s in EquipmentStatus.values)
-                      DropdownMenuItem(value: s, child: Text(s.label)),
-                  ],
-                  onChanged: (v) => setState(() => _status = v!),
-                ),
-                if (!_isNew && widget.existing!.units.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Current unit IDs',
-                    style: TextStyle(color: Colors.black54, fontSize: 12),
-                  ),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      for (final unit in widget.existing!.units)
-                        Chip(
-                          visualDensity: VisualDensity.compact,
-                          label: Text(
-                            unit.id,
-                            style: const TextStyle(
-                              fontFamily: 'monospace',
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
               ],
             ),
           ),
