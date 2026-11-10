@@ -8,6 +8,10 @@ import '../screens/staff/staff_dashboard.dart';
 import '../screens/student/equipment_catalog.dart';
 import '../screens/student/my_rentals.dart';
 import '../screens/student/student_dashboard.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../core/utils/user_display.dart';
+import '../screens/staff/manage_equipment_screen.dart';
+import '../screens/staff/checkout_screen.dart';
 
 class ResponsiveAppShell extends StatefulWidget {
   const ResponsiveAppShell({
@@ -33,7 +37,15 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
   void initState() {
     super.initState();
     _role = widget.initialRole;
+
+  final user = FirebaseAuth.instance.currentUser;
+  if (user != null) {
+    _userStream = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .snapshots();
   }
+}
 
   List<_Destination> get _destinations => _role == UserRole.student
       ? const [
@@ -76,20 +88,17 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
     }
 
     return switch (_selectedIndex) {
-      0 => const StaffDashboardScreen(),
-      1 => const _ComingSoonScreen(
-        title: 'Inventory Management',
-        description: 'Add, edit, filter, and inspect university equipment.',
-        icon: Icons.inventory_2_outlined,
-      ),
-      2 => const _ComingSoonScreen(
-        title: 'Checkout and Return',
-        description: 'Scan a student and an equipment QR code to complete staff-assisted transactions.',
-        icon: Icons.qr_code_scanner,
-      ),
-      _ => const StaffDashboardScreen(),
-    };
-  }
+    0 => StaffDashboardScreen(
+      onViewInventory: () => setState(() {
+        _selectedIndex = 1;
+        _showProfile = false;
+      }),
+    ),
+    1 => const ManageEquipmentScreen(),
+    2 => const CheckoutsScreen(),
+    _ => const StaffDashboardScreen(),
+  };
+}
 
   static void _noop() {}
 
@@ -185,16 +194,24 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final desktop = constraints.maxWidth >= 900;
-        return desktop ? _buildDesktop() : _buildMobile();
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: _userStream,
+      builder: (context, snapshot) {
+        final name = (snapshot.data?.data()?['name'] as String?) ??
+          FirebaseAuth.instance.currentUser?.displayName ??
+          'User';
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final desktop = constraints.maxWidth >= 900;
+            return desktop ? _buildDesktop(name) : _buildMobile(name);
+          },
+        );
       },
     );
   }
 
   // This is the widget for the desktop layout, which includes a sidebar and a top bar.
-  Widget _buildDesktop() {
+  Widget _buildDesktop(String name) {
     return Scaffold(
       body: Row(
         children: [
@@ -269,7 +286,7 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
     );
   }
 
-  Widget _buildMobile() {
+  Widget _buildMobile(String name) {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -330,15 +347,15 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
                 ),
               ),
             ],
-            child: const Padding(
+            child: Padding(
               padding: EdgeInsets.symmetric(horizontal: 16),
               child: CircleAvatar(
                 radius: 17,
                 backgroundColor: AppColors.charcoal,
                 foregroundColor: Colors.white,
                 child: Text(
-                  'MR',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                  initialsFor(name),
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
                 ),
               ),
             ),
@@ -492,6 +509,7 @@ class _TopBar extends StatelessWidget {
   });
 
   final UserRole role;
+  final String name;
   final ValueChanged<String> onAccountAction;
   final VoidCallback onNotificationsTap;
 
@@ -545,11 +563,11 @@ class _TopBar extends StatelessWidget {
             ],
             child: Row(
               children: [
-                const CircleAvatar(
+                CircleAvatar(
                   backgroundColor: AppColors.csunRed,
                   foregroundColor: Colors.white,
                   child: Text(
-                    'MR',
+                    initialsFor(name),
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                   ),
                 ),
@@ -558,8 +576,8 @@ class _TopBar extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Mehrdad R.',
+                    Text(
+                      shortName(name),
                       style: TextStyle(fontWeight: FontWeight.w600),
                     ),
                     Text(
@@ -997,7 +1015,7 @@ class _ComingSoonScreen extends StatelessWidget {
       ),
     );
   }
-}
+} */
 
 class _Destination {
   const _Destination(this.label, this.icon, this.selectedIcon);

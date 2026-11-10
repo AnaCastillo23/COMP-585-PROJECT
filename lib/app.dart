@@ -13,21 +13,31 @@ class EquipmentRentalApp extends StatefulWidget {
 }
 
 class _EquipmentRentalAppState extends State<EquipmentRentalApp> {
+  final _navigatorKey = GlobalKey<NavigatorState>();
   UserRole? _activeRole;
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'CSUN Equipment Checkout',
       theme: AppTheme.lightTheme,
       home: _activeRole == null
           ? LoginScreen(
-              onContinue: (role) => setState(() => _activeRole = role),
+              onContinue: (role) {
+                // Close any pushed screens (create account, staff login)
+                // so the new home screen is what the user sees.
+                _navigatorKey.currentState?.popUntil((route) => route.isFirst);
+                setState(() => _activeRole = role);
+              },
             )
           : ResponsiveAppShell(
               initialRole: _activeRole!,
-              onSignOut: () => setState(() => _activeRole = null),
+              onSignOut: () {
+                _navigatorKey.currentState?.popUntil((route) => route.isFirst);
+                setState(() => _activeRole = null);
+              },
             ),
     );
   }
