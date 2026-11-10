@@ -8,7 +8,9 @@ import '../screens/staff/staff_dashboard.dart';
 import '../screens/student/equipment_catalog.dart';
 import '../screens/student/my_rentals.dart';
 import '../screens/student/student_dashboard.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../core/utils/user_display.dart';
 import '../screens/staff/manage_equipment_screen.dart';
 import '../screens/staff/checkout_screen.dart';
@@ -29,6 +31,7 @@ class ResponsiveAppShell extends StatefulWidget {
 
 class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
   late UserRole _role;
+  Stream<DocumentSnapshot<Map<String, dynamic>>>? _userStream;
   int _selectedIndex = 0;
   bool _showProfile = false;
   bool _showNotifications = false;
@@ -38,14 +41,14 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
     super.initState();
     _role = widget.initialRole;
 
-  final user = FirebaseAuth.instance.currentUser;
-  if (user != null) {
-    _userStream = FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .snapshots();
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      _userStream = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .snapshots();
+    }
   }
-}
 
   List<_Destination> get _destinations => _role == UserRole.student
       ? const [
@@ -88,17 +91,17 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
     }
 
     return switch (_selectedIndex) {
-    0 => StaffDashboardScreen(
-      onViewInventory: () => setState(() {
-        _selectedIndex = 1;
-        _showProfile = false;
-      }),
-    ),
-    1 => const ManageEquipmentScreen(),
-    2 => const CheckoutsScreen(),
-    _ => const StaffDashboardScreen(),
-  };
-}
+      0 => StaffDashboardScreen(
+        onViewInventory: () => setState(() {
+          _selectedIndex = 1;
+          _showProfile = false;
+        }),
+      ),
+      1 => const ManageEquipmentScreen(),
+      2 => const CheckoutsScreen(),
+      _ => const StaffDashboardScreen(),
+    };
+  }
 
   static void _noop() {}
 
@@ -197,9 +200,10 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       stream: _userStream,
       builder: (context, snapshot) {
-        final name = (snapshot.data?.data()?['name'] as String?) ??
-          FirebaseAuth.instance.currentUser?.displayName ??
-          'User';
+        final name =
+            (snapshot.data?.data()?['name'] as String?) ??
+            FirebaseAuth.instance.currentUser?.displayName ??
+            'User';
         return LayoutBuilder(
           builder: (context, constraints) {
             final desktop = constraints.maxWidth >= 900;
@@ -233,6 +237,7 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
                   children: [
                     _TopBar(
                       role: _role,
+                      name: name,
                       onAccountAction: _handleAccountAction,
                       onNotificationsTap: _toggleNotifications,
                     ),
@@ -355,7 +360,10 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
                 foregroundColor: Colors.white,
                 child: Text(
                   initialsFor(name),
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ),
@@ -504,6 +512,7 @@ class _SidebarItem extends StatelessWidget {
 class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.role,
+    required this.name,
     required this.onAccountAction,
     required this.onNotificationsTap,
   });
@@ -973,49 +982,6 @@ class _NotificationRecord {
   final String message;
   final int ageInDays;
 }
-
-class _ComingSoonScreen extends StatelessWidget {
-  const _ComingSoonScreen({
-    required this.title,
-    required this.description,
-    required this.icon,
-  });
-
-  final String title;
-  final String description;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 64, color: AppColors.csunRed),
-            const SizedBox(height: 18),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.headlineMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              description,
-              style: const TextStyle(color: AppColors.muted),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'This workflow is intentionally left as a placeholder in the bare-bones version.',
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-} */
 
 class _Destination {
   const _Destination(this.label, this.icon, this.selectedIcon);
