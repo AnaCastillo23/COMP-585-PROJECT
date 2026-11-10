@@ -90,13 +90,16 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
         context: context,
         builder: (dialogContext) {
           return AlertDialog(
+            backgroundColor: const Color(0xFFFCFCFD),
+            elevation: 2,
+            shadowColor: Colors.black.withValues(alpha: 0.1),
             title: Text(reservation.equipmentName),
             content: Text(
               'Reservation: ${reservation.id}\n\n'
               'Pickup deadline: '
               '${_formatDateTime(reservation.pickupDeadline)}\n\n'
               'Bring your student ID when picking up the equipment. '
-              'The two-week rental period begins after staff checks it out.',
+              'The two-week rental period begins after staff checks the item out.',
             ),
             actions: [
               FilledButton(
@@ -116,6 +119,9 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
         context: context,
         builder: (dialogContext) {
           return AlertDialog(
+            backgroundColor: const Color(0xFFFCFCFD),
+            elevation: 2,
+            shadowColor: Colors.black.withValues(alpha: 0.1),
             title: Text(entry.equipmentName),
             content: Text(
               'Waitlist request: ${entry.id}\n\n'

@@ -31,7 +31,7 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
   late UserRole _role;
   int _selectedIndex = 0;
   bool _showProfile = false;
-  Stream<DocumentSnapshot<Map<String, dynamic>>>? _userStream;
+  bool _showNotifications = false;
 
   @override
   void initState() {
@@ -125,6 +125,73 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
     }
   }
 
+  void _toggleNotifications() {
+    setState(() => _showNotifications = !_showNotifications);
+  }
+
+  void _showMobileNotifications() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => _NotificationsPanel(
+        isBottomSheet: true,
+        onSeeMore: () {
+          Navigator.of(context).pop();
+          Future<void>.delayed(const Duration(milliseconds: 220), () {
+            if (mounted) {
+              _showNotificationHistory(panelAlreadyClosed: true);
+            }
+          });
+        },
+      ),
+    );
+  }
+
+  void _showNotificationHistory({bool panelAlreadyClosed = false}) {
+    if (!panelAlreadyClosed) {
+      setState(() => _showNotifications = false);
+    }
+
+    Future<void>.delayed(
+      Duration(milliseconds: panelAlreadyClosed ? 0 : 260),
+      () {
+        if (!mounted) {
+          return;
+        }
+
+        showGeneralDialog<void>(
+          context: context,
+          barrierDismissible: true,
+          barrierLabel: 'Dismiss notifications',
+          barrierColor: Colors.black.withValues(alpha: 0.18),
+          transitionDuration: const Duration(milliseconds: 320),
+          pageBuilder: (context, animation, secondaryAnimation) {
+            return const _NotificationHistoryDialog();
+          },
+          transitionBuilder: (context, animation, secondaryAnimation, child) {
+            final curvedAnimation = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+              reverseCurve: Curves.easeInCubic,
+            );
+
+            return FadeTransition(
+              opacity: curvedAnimation,
+              child: ScaleTransition(
+                scale: Tween<double>(
+                  begin: 0.96,
+                  end: 1,
+                ).animate(curvedAnimation),
+                child: child,
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
@@ -159,10 +226,58 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
             onSignOut: _signOut,
           ),
           Expanded(
-            child: Column(
+            child: Stack(
+              clipBehavior: Clip.none,
               children: [
-                _TopBar(role: _role, name: name, onAccountAction: _handleAccountAction),
-                Expanded(child: _selectedScreen),
+                Column(
+                  children: [
+                    _TopBar(
+                      role: _role,
+                      onAccountAction: _handleAccountAction,
+                      onNotificationsTap: _toggleNotifications,
+                    ),
+                    Expanded(child: _selectedScreen),
+                  ],
+                ),
+                Positioned.fill(
+                  child: IgnorePointer(
+                    ignoring: !_showNotifications,
+                    child: AnimatedOpacity(
+                      opacity: _showNotifications ? 1 : 0,
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeOut,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _toggleNotifications,
+                        child: ColoredBox(
+                          color: Colors.black.withValues(alpha: 0.06),
+                          child: const SizedBox.expand(),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 68,
+                  right: 24,
+                  child: AnimatedSlide(
+                    offset: _showNotifications
+                        ? Offset.zero
+                        : const Offset(0, -0.04),
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOut,
+                    child: AnimatedOpacity(
+                      opacity: _showNotifications ? 1 : 0,
+                      duration: const Duration(milliseconds: 140),
+                      child: IgnorePointer(
+                        ignoring: !_showNotifications,
+                        child: _NotificationsPanel(
+                          onSeeMore: _showNotificationHistory,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -195,6 +310,11 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
           ],
         ),
         actions: [
+          IconButton(
+            onPressed: _showMobileNotifications,
+            tooltip: 'Notifications',
+            icon: const Icon(Icons.notifications_none),
+          ),
           PopupMenuButton<String>(
             onSelected: _handleAccountAction,
             itemBuilder: (context) => [
@@ -242,7 +362,7 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
           ),
         ],
       ),
-      body: _selectedScreen,
+      body: Stack(clipBehavior: Clip.none, children: [_selectedScreen]),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) => setState(() {
@@ -382,11 +502,16 @@ class _SidebarItem extends StatelessWidget {
 }
 
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.role, required this.name, required this.onAccountAction});
+  const _TopBar({
+    required this.role,
+    required this.onAccountAction,
+    required this.onNotificationsTap,
+  });
 
   final UserRole role;
   final String name;
   final ValueChanged<String> onAccountAction;
+  final VoidCallback onNotificationsTap;
 
   @override
   Widget build(BuildContext context) {
@@ -401,7 +526,7 @@ class _TopBar extends StatelessWidget {
         children: [
           const Spacer(),
           IconButton(
-            onPressed: () {},
+            onPressed: onNotificationsTap,
             tooltip: 'Notifications',
             icon: const Icon(Icons.notifications_none),
           ),
@@ -475,7 +600,381 @@ class _TopBar extends StatelessWidget {
   }
 }
 
-/*class _ComingSoonScreen extends StatelessWidget {
+class _NotificationsPanel extends StatelessWidget {
+  const _NotificationsPanel({
+    required this.onSeeMore,
+    this.isBottomSheet = false,
+  });
+
+  final VoidCallback onSeeMore;
+  final bool isBottomSheet;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      elevation: 4,
+      shadowColor: Colors.black.withValues(alpha: 0.16),
+      borderRadius: isBottomSheet
+          ? const BorderRadius.vertical(top: Radius.circular(18))
+          : BorderRadius.circular(12),
+      color: const Color(0xFFFCFCFD),
+      child: SizedBox(
+        width: isBottomSheet ? double.infinity : 340,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 480),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'Notifications',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const Spacer(),
+                    Text(
+                      '2 new',
+                      style: TextStyle(
+                        color: AppColors.csunRed,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Divider(height: 1),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: const [
+                      _NotificationItem(
+                        icon: Icons.schedule_outlined,
+                        title: 'Pickup deadline approaching',
+                        timeLabel: '5 hours ago',
+                        message:
+                            'Your Canon EOS R50 camera is ready for pickup. '
+                            'Please collect it within 24 hours.',
+                      ),
+                      _NotificationItem(
+                        icon: Icons.assignment_return_outlined,
+                        title: 'Rental due soon',
+                        timeLabel: '5 hours ago',
+                        message:
+                            'Your MacBook Pro rental is due in 3 days. '
+                            'Return it to avoid late equipment fees.',
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    onPressed: onSeeMore,
+                    child: const Text('See More'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NotificationItem extends StatelessWidget {
+  const _NotificationItem({
+    required this.icon,
+    required this.title,
+    required this.timeLabel,
+    required this.message,
+  });
+
+  final IconData icon;
+  final String title;
+  final String timeLabel;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: AppColors.csunRed.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: AppColors.csunRed, size: 18),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      timeLabel,
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  message,
+                  style: const TextStyle(
+                    color: AppColors.muted,
+                    fontSize: 12,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NotificationHistoryDialog extends StatefulWidget {
+  const _NotificationHistoryDialog();
+
+  @override
+  State<_NotificationHistoryDialog> createState() =>
+      _NotificationHistoryDialogState();
+}
+
+class _NotificationHistoryDialogState
+    extends State<_NotificationHistoryDialog> {
+  final _searchController = TextEditingController();
+  String _selectedFilter = 'Today';
+
+  static const _filters = ['Today', 'This week', '10 days ago', '30+ days ago'];
+
+  static const _notifications = [
+    _NotificationRecord(
+      icon: Icons.schedule_outlined,
+      title: 'Pickup deadline approaching',
+      message: 'Your Canon EOS R50 camera is ready for pickup. Please collect it within 24 hours.',
+      ageInDays: 0,
+    ),
+    _NotificationRecord(
+      icon: Icons.assignment_return_outlined,
+      title: 'Rental due soon',
+      message: 'Your MacBook Pro rental is due in 3 days. Return it to avoid late equipment fees.',
+      ageInDays: 5,
+    ),
+    _NotificationRecord(
+      icon: Icons.event_available_outlined,
+      title: 'Reservation confirmed',
+      message: 'Your Sony Alpha camera reservation was confirmed.',
+      ageInDays: 12,
+    ),
+    _NotificationRecord(
+      icon: Icons.assignment_turned_in_outlined,
+      title: 'Rental returned',
+      message: 'Your GoPro HERO rental was successfully checked in.',
+      ageInDays: 35,
+    ),
+  ];
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<_NotificationRecord> get _filteredNotifications {
+    final query = _searchController.text.trim().toLowerCase();
+
+    return _notifications.where((notification) {
+      final matchesSearch =
+          query.isEmpty ||
+          notification.title.toLowerCase().contains(query) ||
+          notification.message.toLowerCase().contains(query);
+      final matchesDate = switch (_selectedFilter) {
+        'Today' => notification.ageInDays == 0,
+        'This week' => notification.ageInDays <= 7,
+        '10 days ago' =>
+          notification.ageInDays > 7 && notification.ageInDays <= 10,
+        '30+ days ago' => notification.ageInDays > 30,
+        _ => true,
+      };
+
+      return matchesSearch && matchesDate;
+    }).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final notifications = _filteredNotifications;
+
+    return Dialog(
+      backgroundColor: const Color(0xFFFCFCFD),
+      elevation: 3,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520, maxHeight: 620),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    'All notifications',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    tooltip: 'Close',
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _searchController,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(
+                  hintText: 'Search notifications',
+                  prefixIcon: Icon(Icons.search),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (final filter in _filters) ...[
+                      FilterChip(
+                        label: Text(filter),
+                        selected: _selectedFilter == filter,
+                        onSelected: (_) => setState(() {
+                          _selectedFilter = filter;
+                        }),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 360,
+                child: notifications.isEmpty
+                    ? const Center(
+                        child: Text('No notifications match your filters.'),
+                      )
+                    : ListView.separated(
+                        itemCount: notifications.length,
+                        separatorBuilder: (_, _) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final notification = notifications[index];
+                          return _NotificationHistoryItem(
+                            notification: notification,
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NotificationHistoryItem extends StatelessWidget {
+  const _NotificationHistoryItem({required this.notification});
+
+  final _NotificationRecord notification;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(notification.icon, color: AppColors.csunRed),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  notification.title,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  notification.message,
+                  style: const TextStyle(color: AppColors.muted, fontSize: 12),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _notificationAgeLabel(notification.ageInDays),
+                  style: const TextStyle(color: AppColors.muted, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _notificationAgeLabel(int ageInDays) {
+    if (ageInDays == 0) {
+      return 'Today';
+    }
+    if (ageInDays == 1) {
+      return '1 day ago';
+    }
+    return '$ageInDays days ago';
+  }
+}
+
+class _NotificationRecord {
+  const _NotificationRecord({
+    required this.icon,
+    required this.title,
+    required this.message,
+    required this.ageInDays,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final int ageInDays;
+}
+
+class _ComingSoonScreen extends StatelessWidget {
   const _ComingSoonScreen({
     required this.title,
     required this.description,
