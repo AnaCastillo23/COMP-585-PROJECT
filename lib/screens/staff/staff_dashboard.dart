@@ -8,17 +8,11 @@ import '../../services/activity_service.dart';
 import '../../services/equipment_service.dart';
 import '../../services/loan_service.dart';
 import 'equipment_form_dialog.dart';
-import 'manage_equipment_screen.dart';
 
 class StaffDashboardScreen extends StatelessWidget {
-  const StaffDashboardScreen({
-    super.key,
-    this.equipmentService,
-    this.onViewInventory,
-  });
+  const StaffDashboardScreen({super.key, this.equipmentService});
 
   final EquipmentService? equipmentService;
-  final VoidCallback? onViewInventory;
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +35,7 @@ class StaffDashboardScreen extends StatelessWidget {
           const SizedBox(height: 22),
           _StatsRow(service: service),
           const SizedBox(height: 28),
-          _QuickActions(service: service, onViewInventory: onViewInventory),
+          _QuickActions(service: service),
           const SizedBox(height: 28),
           const _ActivityList(),
         ],
@@ -179,10 +173,9 @@ class _StaffStat extends StatelessWidget {
 //_QuickActions widget builds the staff dashboard's quick actions section, which includes a featured action for scanning equipment and
 // four additional quick action tiles for finding students, viewing reservations, adding equipment, and reporting issues. The layout adapts to the available width, displaying the tiles in rows or columns as appropriate.
 class _QuickActions extends StatelessWidget {
-  const _QuickActions({required this.service, this.onViewInventory});
+  const _QuickActions({required this.service});
 
   final EquipmentService service;
-  final VoidCallback? onViewInventory;
 
   @override
   Widget build(BuildContext context) {
@@ -227,29 +220,9 @@ class _QuickActions extends StatelessWidget {
           children: [
             Row(
               children: [
-                Expanded(
-                  child: Text(
-                    'Quick actions',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                ),
-                TextButton.icon(
-                  onPressed:
-                      onViewInventory ??
-                      () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              ManageEquipmentScreen(equipmentService: service),
-                        ),
-                      ),
-                  icon: const Icon(Icons.inventory_2_outlined, size: 16),
-                  label: const Text('View inventory'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.softActionForeground,
-                    backgroundColor: AppColors.softActionBackground,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    shape: const StadiumBorder(),
-                  ),
+                Text(
+                  'Quick actions',
+                  style: Theme.of(context).textTheme.titleLarge,
                 ),
               ],
             ),

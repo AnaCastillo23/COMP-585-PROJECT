@@ -91,12 +91,7 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
     }
 
     return switch (_selectedIndex) {
-      0 => StaffDashboardScreen(
-        onViewInventory: () => setState(() {
-          _selectedIndex = 1;
-          _showProfile = false;
-        }),
-      ),
+      0 => const StaffDashboardScreen(),
       1 => const ManageEquipmentScreen(),
       2 => const CheckoutsScreen(),
       _ => const StaffDashboardScreen(),
