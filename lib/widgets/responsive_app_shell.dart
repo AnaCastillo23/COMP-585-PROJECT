@@ -138,6 +138,7 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) => _NotificationsPanel(
+        role: _role,
         isBottomSheet: true,
         onSeeMore: () {
           Navigator.of(context).pop();
@@ -170,7 +171,7 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
           barrierColor: Colors.black.withValues(alpha: 0.18),
           transitionDuration: const Duration(milliseconds: 320),
           pageBuilder: (context, animation, secondaryAnimation) {
-            return const _NotificationHistoryDialog();
+            return _NotificationHistoryDialog(role: _role);
           },
           transitionBuilder: (context, animation, secondaryAnimation, child) {
             final curvedAnimation = CurvedAnimation(
@@ -277,6 +278,7 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
                       child: IgnorePointer(
                         ignoring: !_showNotifications,
                         child: _NotificationsPanel(
+                          role: _role,
                           onSeeMore: _showNotificationHistory,
                         ),
                       ),
@@ -613,15 +615,18 @@ class _TopBar extends StatelessWidget {
 
 class _NotificationsPanel extends StatelessWidget {
   const _NotificationsPanel({
+    required this.role,
     required this.onSeeMore,
     this.isBottomSheet = false,
   });
 
+  final UserRole role;
   final VoidCallback onSeeMore;
   final bool isBottomSheet;
 
   @override
   Widget build(BuildContext context) {
+    final staffNotifications = role == UserRole.staff;
     return Material(
       elevation: 4,
       shadowColor: Colors.black.withValues(alpha: 0.16),
@@ -647,7 +652,7 @@ class _NotificationsPanel extends StatelessWidget {
                     ),
                     const Spacer(),
                     Text(
-                      '2 new',
+                      '3 new',
                       style: TextStyle(
                         color: AppColors.csunRed,
                         fontSize: 12,
@@ -661,24 +666,59 @@ class _NotificationsPanel extends StatelessWidget {
                 Flexible(
                   child: ListView(
                     shrinkWrap: true,
-                    children: const [
-                      _NotificationItem(
-                        icon: Icons.schedule_outlined,
-                        title: 'Pickup deadline approaching',
-                        timeLabel: '5 hours ago',
-                        message:
-                            'Your Canon EOS R50 camera is ready for pickup. '
-                            'Please collect it within 24 hours.',
-                      ),
-                      _NotificationItem(
-                        icon: Icons.assignment_return_outlined,
-                        title: 'Rental due soon',
-                        timeLabel: '5 hours ago',
-                        message:
-                            'Your MacBook Pro rental is due in 3 days. '
-                            'Return it to avoid late equipment fees.',
-                      ),
-                    ],
+                    children: staffNotifications
+                        ? const [
+                            _NotificationItem(
+                              icon: Icons.warning_amber_outlined,
+                              title: 'Low availability',
+                              timeLabel: '5 hours ago',
+                              message:
+                                  'An equipment item has only one available '
+                                  'unit remaining. Review upcoming reservations.',
+                            ),
+                            _NotificationItem(
+                              icon: Icons.build_outlined,
+                              title: 'Maintenance review needed',
+                              timeLabel: '3 days ago',
+                              message:
+                                  'It has been several days since this item '
+                                  'was marked as in maintenance. Review it now.',
+                            ),
+                            _NotificationItem(
+                              icon: Icons.assignment_return_outlined,
+                              title: 'Overdue return',
+                              timeLabel: '1 day ago',
+                              message:
+                                  'A checked-out item is past its return date. '
+                                  'Review the checkout and contact the student.',
+                            ),
+                          ]
+                        : const [
+                            _NotificationItem(
+                              icon: Icons.schedule_outlined,
+                              title: 'Pickup deadline approaching',
+                              timeLabel: '5 hours ago',
+                              message:
+                                  'Your Canon EOS R50 camera is ready for pickup. '
+                                  'Please collect it within 24 hours.',
+                            ),
+                            _NotificationItem(
+                              icon: Icons.assignment_return_outlined,
+                              title: 'Rental due soon',
+                              timeLabel: '5 hours ago',
+                              message:
+                                  'Your MacBook Pro rental is due in 3 days. '
+                                  'Return it to avoid late equipment fees.',
+                            ),
+                            _NotificationItem(
+                              icon: Icons.event_available_outlined,
+                              title: 'Reservation confirmed',
+                              timeLabel: '1 day ago',
+                              message:
+                                  'Your Sony Alpha camera reservation was '
+                                  'confirmed and is ready to view.',
+                            ),
+                          ],
                   ),
                 ),
                 const Divider(height: 20),
@@ -770,7 +810,9 @@ class _NotificationItem extends StatelessWidget {
 }
 
 class _NotificationHistoryDialog extends StatefulWidget {
-  const _NotificationHistoryDialog();
+  const _NotificationHistoryDialog({required this.role});
+
+  final UserRole role;
 
   @override
   State<_NotificationHistoryDialog> createState() =>
@@ -780,34 +822,67 @@ class _NotificationHistoryDialog extends StatefulWidget {
 class _NotificationHistoryDialogState
     extends State<_NotificationHistoryDialog> {
   final _searchController = TextEditingController();
-  String _selectedFilter = 'Today';
+  String _selectedFilter = 'All';
 
-  static const _filters = ['Today', 'This week', '10 days ago', '30+ days ago'];
+  static const _filters = [
+    'All',
+    'Today',
+    'This week',
+    '10 days ago',
+    '30+ days ago',
+  ];
 
   static const _notifications = [
     _NotificationRecord(
       icon: Icons.schedule_outlined,
       title: 'Pickup deadline approaching',
       message: 'Your Canon EOS R50 camera is ready for pickup. Please collect it within 24 hours.',
-      ageInDays: 0,
+      ageInHours: 5,
     ),
     _NotificationRecord(
       icon: Icons.assignment_return_outlined,
       title: 'Rental due soon',
       message: 'Your MacBook Pro rental is due in 3 days. Return it to avoid late equipment fees.',
-      ageInDays: 5,
+      ageInHours: 5,
     ),
     _NotificationRecord(
       icon: Icons.event_available_outlined,
       title: 'Reservation confirmed',
       message: 'Your Sony Alpha camera reservation was confirmed.',
-      ageInDays: 12,
+      ageInHours: 24,
     ),
     _NotificationRecord(
       icon: Icons.assignment_turned_in_outlined,
       title: 'Rental returned',
       message: 'Your GoPro HERO rental was successfully checked in.',
-      ageInDays: 35,
+      ageInHours: 35 * 24,
+    ),
+  ];
+
+  static const _staffNotifications = [
+    _NotificationRecord(
+      icon: Icons.build_outlined,
+      title: 'Maintenance review needed',
+      message: 'It has been several days since this item was marked as in maintenance. Review it now.',
+      ageInHours: 3 * 24,
+    ),
+    _NotificationRecord(
+      icon: Icons.assignment_return_outlined,
+      title: 'Overdue return',
+      message: 'A checked-out item is past its return date. Review the checkout and contact the student.',
+      ageInHours: 24,
+    ),
+    _NotificationRecord(
+      icon: Icons.event_outlined,
+      title: 'Pickup scheduled soon',
+      message: 'A reservation pickup is scheduled soon. Confirm the item is available and ready.',
+      ageInHours: 5,
+    ),
+    _NotificationRecord(
+      icon: Icons.warning_amber_outlined,
+      title: 'Low availability',
+      message: 'An equipment item has only one available unit remaining. Review upcoming reservations.',
+      ageInHours: 5,
     ),
   ];
 
@@ -819,23 +894,30 @@ class _NotificationHistoryDialogState
 
   List<_NotificationRecord> get _filteredNotifications {
     final query = _searchController.text.trim().toLowerCase();
+    final notifications = widget.role == UserRole.staff
+        ? _staffNotifications
+        : _notifications;
 
-    return _notifications.where((notification) {
+    final filtered = notifications.where((notification) {
       final matchesSearch =
           query.isEmpty ||
           notification.title.toLowerCase().contains(query) ||
           notification.message.toLowerCase().contains(query);
       final matchesDate = switch (_selectedFilter) {
-        'Today' => notification.ageInDays == 0,
-        'This week' => notification.ageInDays <= 7,
+        'All' => true,
+        'Today' => notification.ageInHours < 24,
+        'This week' => notification.ageInHours <= 7 * 24,
         '10 days ago' =>
-          notification.ageInDays > 7 && notification.ageInDays <= 10,
-        '30+ days ago' => notification.ageInDays > 30,
+          notification.ageInHours > 7 * 24 &&
+              notification.ageInHours <= 10 * 24,
+        '30+ days ago' => notification.ageInHours > 30 * 24,
         _ => true,
       };
 
       return matchesSearch && matchesDate;
     }).toList();
+    filtered.sort((a, b) => a.ageInHours.compareTo(b.ageInHours));
+    return filtered;
   }
 
   @override
@@ -949,7 +1031,7 @@ class _NotificationHistoryItem extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _notificationAgeLabel(notification.ageInDays),
+                  _notificationAgeLabel(notification.ageInHours),
                   style: const TextStyle(color: AppColors.muted, fontSize: 11),
                 ),
               ],
@@ -960,7 +1042,12 @@ class _NotificationHistoryItem extends StatelessWidget {
     );
   }
 
-  String _notificationAgeLabel(int ageInDays) {
+  String _notificationAgeLabel(int ageInHours) {
+    if (ageInHours < 24) {
+      if (ageInHours == 1) return '1 hour ago';
+      return '$ageInHours hours ago';
+    }
+    final ageInDays = ageInHours ~/ 24;
     if (ageInDays == 0) {
       return 'Today';
     }
@@ -976,13 +1063,13 @@ class _NotificationRecord {
     required this.icon,
     required this.title,
     required this.message,
-    required this.ageInDays,
+    required this.ageInHours,
   });
 
   final IconData icon;
   final String title;
   final String message;
-  final int ageInDays;
+  final int ageInHours;
 }
 
 class _Destination {
