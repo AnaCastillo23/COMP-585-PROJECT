@@ -63,8 +63,8 @@ class _StatsRow extends StatefulWidget {
 }
 
 class _StatsRowState extends State<_StatsRow> {
-  late final Stream<List<Equipment>> _equipment =
-      widget.service.watchEquipment();
+  late final Stream<List<Equipment>> _equipment = widget.service
+      .watchEquipment();
   late final Stream<List<Loan>> _loans = LoanService().watchActiveLoans();
 
   @override
@@ -78,14 +78,16 @@ class _StatsRowState extends State<_StatsRow> {
             final items = equipmentSnap.data ?? const <Equipment>[];
 
             final total = items.fold<int>(0, (s, e) => s + e.totalUnits);
-            final available =
-                items.fold<int>(0, (s, e) => s + e.availableUnits);
+            final available = items.fold<int>(
+              0,
+              (s, e) => s + e.availableUnits,
+            );
             final maintenance = items.fold<int>(
               0,
               (s, e) => s + e.countWithStatus(EquipmentStatus.maintenance),
             );
-           // final unavailable = items.fold<int>(
-             // 0,
+            // final unavailable = items.fold<int>(
+            // 0,
             //  (s, e) => s + e.countWithStatus(EquipmentStatus.unavailable),
             //);
 
@@ -232,19 +234,21 @@ class _QuickActions extends StatelessWidget {
                   ),
                 ),
                 TextButton.icon(
-                  onPressed: onViewInventory ??
+                  onPressed:
+                      onViewInventory ??
                       () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => ManageEquipmentScreen(
-                                equipmentService: service,
-                              ),
-                            ),
-                          ),
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              ManageEquipmentScreen(equipmentService: service),
+                        ),
+                      ),
                   icon: const Icon(Icons.inventory_2_outlined, size: 16),
                   label: const Text('View inventory'),
                   style: TextButton.styleFrom(
-                    foregroundColor: AppColors.csunRed,
-                    padding: EdgeInsets.zero,
+                    foregroundColor: AppColors.softActionForeground,
+                    backgroundColor: AppColors.softActionBackground,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    shape: const StadiumBorder(),
                   ),
                 ),
               ],
@@ -411,8 +415,8 @@ class _ActivityListState extends State<_ActivityList> {
   static const _pageSize = 5;
 
   // Created once so typing in the search box doesn't restart the stream.
-  late final Stream<List<ActivityEntry>> _stream =
-      ActivityService().watchRecent();
+  late final Stream<List<ActivityEntry>> _stream = ActivityService()
+      .watchRecent();
 
   final _searchController = TextEditingController();
   String _selectedType = 'All activity types';
@@ -436,7 +440,8 @@ class _ActivityListState extends State<_ActivityList> {
     };
 
     return all.where((e) {
-      final matchesSearch = query.isEmpty ||
+      final matchesSearch =
+          query.isEmpty ||
           '${e.title} ${e.detail}'.toLowerCase().contains(query);
       final matchesType =
           _selectedType == 'All activity types' || e.type == _selectedType;
@@ -472,6 +477,15 @@ class _ActivityListState extends State<_ActivityList> {
     });
   }
 
+  void _viewAllActivity() {
+    _updateFilter(() {
+      _searchController.clear();
+      _selectedType = 'All activity types';
+      _selectedStatus = 'All statuses';
+      _selectedRange = 'All time';
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -486,14 +500,14 @@ class _ActivityListState extends State<_ActivityList> {
               ),
             ),
             TextButton.icon(
-              onPressed: () {},
+              onPressed: _viewAllActivity,
               icon: const Icon(Icons.arrow_forward, size: 16),
-              // view all button would take the user to a page showing all activity entries, which is not implemented yet
-              // pagination is also a visual placeholder for now, as the activity list is static and does not support pagination yet.
               label: const Text('View all'),
               style: TextButton.styleFrom(
-                foregroundColor: AppColors.csunRed,
-                padding: EdgeInsets.zero,
+                foregroundColor: AppColors.softActionForeground,
+                backgroundColor: AppColors.softActionBackground,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                shape: const StadiumBorder(),
               ),
             ),
           ],
@@ -527,16 +541,19 @@ class _ActivityListState extends State<_ActivityList> {
             final all = snapshot.data!;
             final filtered = _filter(all);
 
-            final pageCount =
-                filtered.isEmpty ? 1 : (filtered.length / _pageSize).ceil();
+            final pageCount = filtered.isEmpty
+                ? 1
+                : (filtered.length / _pageSize).ceil();
             final page = _page.clamp(0, pageCount - 1);
             final start = page * _pageSize;
             final end = (start + _pageSize).clamp(0, filtered.length);
             final pageItems = filtered.sublist(start, end);
 
             // Show at most 5 page buttons, centered on the current page.
-            final first =
-                (page - 2).clamp(0, (pageCount - 5).clamp(0, pageCount));
+            final first = (page - 2).clamp(
+              0,
+              (pageCount - 5).clamp(0, pageCount),
+            );
             final last = (first + 5).clamp(0, pageCount);
 
             return Column(
@@ -572,8 +589,10 @@ class _ActivityListState extends State<_ActivityList> {
                   children: [
                     Text(
                       'Showing ${pageItems.length} of ${filtered.length} activities',
-                      style:
-                          const TextStyle(color: AppColors.muted, fontSize: 12),
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 12,
+                      ),
                     ),
                     const Spacer(),
                     _ActivityPageButton(
@@ -617,7 +636,8 @@ _ActivityEntry _toUi(ActivityEntry e) {
   final (fg, bg) = switch (e.status) {
     'Completed' => (const Color(0xFF247A4A), const Color(0xFFDDF3E5)),
     'Pickup pending' => (const Color(0xFFB36B00), const Color(0xFFFFEBCB)),
-    'Damaged' || 'Needs attention' => (AppColors.csunRed, const Color(0xFFFFE0E4)),
+    'Damaged' ||
+    'Needs attention' => (AppColors.csunRed, const Color(0xFFFFE0E4)),
     'Checked out' => (const Color(0xFF1377C9), const Color(0xFFDCEEFF)),
     _ => (AppColors.muted, const Color(0xFFE9EDF2)),
   };
@@ -734,8 +754,10 @@ class _ActivityFilters extends StatelessWidget {
             TextButton(
               onPressed: onClear,
               style: TextButton.styleFrom(
-                foregroundColor: AppColors.csunRed,
-                padding: const EdgeInsets.symmetric(horizontal: 4),
+                foregroundColor: AppColors.softActionForeground,
+                backgroundColor: AppColors.softActionBackground,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                shape: const StadiumBorder(),
               ),
               child: const Text('Clear filters'),
             ),

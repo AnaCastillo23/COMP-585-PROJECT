@@ -244,7 +244,16 @@ class _DashboardContent extends StatelessWidget {
                 style: Theme.of(context).textTheme.titleLarge,
               ),
             ),
-            TextButton(onPressed: onBrowseAll, child: const Text('Browse all')),
+            TextButton(
+              onPressed: onBrowseAll,
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.softActionForeground,
+                backgroundColor: AppColors.softActionBackground,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                shape: const StadiumBorder(),
+              ),
+              child: const Text('Browse all'),
+            ),
           ],
         ),
         const SizedBox(height: 12),

@@ -400,8 +400,10 @@ class _InventoryFilters extends StatelessWidget {
     final clearButton = TextButton(
       onPressed: onClear,
       style: TextButton.styleFrom(
-        foregroundColor: AppColors.csunRed,
-        padding: const EdgeInsets.symmetric(horizontal: 4),
+        foregroundColor: AppColors.softActionForeground,
+        backgroundColor: AppColors.softActionBackground,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        shape: const StadiumBorder(),
       ),
       child: const Text('Clear filters'),
     );

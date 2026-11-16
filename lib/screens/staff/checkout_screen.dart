@@ -7,8 +7,18 @@ import '../../services/equipment_service.dart';
 import '../../services/loan_service.dart';
 
 const _months = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
 ];
 
 String _formatDate(DateTime d) => '${_months[d.month - 1]} ${d.day}, ${d.year}';
@@ -50,7 +60,8 @@ class _CheckoutsScreenState extends State<CheckoutsScreen> {
 
     final list = all.where((loan) {
       final matchesFilter = _filter == _allLoans || loan.isOverdue;
-      final matchesSearch = q.isEmpty ||
+      final matchesSearch =
+          q.isEmpty ||
           loan.studentName.toLowerCase().contains(q) ||
           loan.studentId.contains(q) ||
           loan.equipmentName.toLowerCase().contains(q) ||
@@ -71,9 +82,9 @@ class _CheckoutsScreenState extends State<CheckoutsScreen> {
   }
 
   void _clearFilters() => _updateFilter(() {
-        _searchController.clear();
-        _filter = _allLoans;
-      });
+    _searchController.clear();
+    _filter = _allLoans;
+  });
 
   void _showMessage(String text) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
@@ -153,8 +164,9 @@ class _CheckoutsScreenState extends State<CheckoutsScreen> {
           final filtered = _applyFilters(all);
           final overdueCount = all.where((l) => l.isOverdue).length;
 
-          final pageCount =
-              filtered.isEmpty ? 1 : (filtered.length / _pageSize).ceil();
+          final pageCount = filtered.isEmpty
+              ? 1
+              : (filtered.length / _pageSize).ceil();
           final page = _page.clamp(0, pageCount - 1);
           final start = page * _pageSize;
           final end = (start + _pageSize).clamp(0, filtered.length);
@@ -220,8 +232,10 @@ class _CheckoutsScreenState extends State<CheckoutsScreen> {
                   children: [
                     Text(
                       'Showing ${pageItems.length} of ${filtered.length} loans',
-                      style:
-                          const TextStyle(color: AppColors.muted, fontSize: 12),
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 12,
+                      ),
                     ),
                     const Spacer(),
                     _PageButton(
@@ -298,8 +312,10 @@ class _CheckoutFilters extends StatelessWidget {
     final clear = TextButton(
       onPressed: onClear,
       style: TextButton.styleFrom(
-        foregroundColor: AppColors.csunRed,
-        padding: const EdgeInsets.symmetric(horizontal: 4),
+        foregroundColor: AppColors.softActionForeground,
+        backgroundColor: AppColors.softActionBackground,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        shape: const StadiumBorder(),
       ),
       child: const Text('Clear filters'),
     );
@@ -459,8 +475,7 @@ class _StatusPill extends StatelessWidget {
     return _Pill(
       label: overdue ? 'Overdue' : 'Checked out',
       foreground: overdue ? AppColors.csunRed : const Color(0xFF1377C9),
-      background:
-          overdue ? const Color(0xFFFFE0E4) : const Color(0xFFDCEEFF),
+      background: overdue ? const Color(0xFFFFE0E4) : const Color(0xFFDCEEFF),
     );
   }
 }
@@ -488,10 +503,7 @@ class _CheckoutWideRow extends StatelessWidget {
             ),
             Expanded(
               flex: 4,
-              child: _TwoLine(
-                title: loan.equipmentName,
-                subtitle: loan.unitId,
-              ),
+              child: _TwoLine(title: loan.equipmentName, subtitle: loan.unitId),
             ),
             Expanded(
               flex: 2,
@@ -598,8 +610,8 @@ class _NewCheckoutDialogState extends State<_NewCheckoutDialog> {
   List<EquipmentUnit> get _availableUnits => _item == null
       ? const []
       : _item!.units
-          .where((u) => u.status == EquipmentStatus.available)
-          .toList();
+            .where((u) => u.status == EquipmentStatus.available)
+            .toList();
 
   Future<void> _findStudent() async {
     final id = _idController.text.trim();
@@ -638,7 +650,9 @@ class _NewCheckoutDialogState extends State<_NewCheckoutDialog> {
     );
     if (picked != null) {
       // Due at the end of the chosen day.
-      setState(() => _due = DateTime(picked.year, picked.month, picked.day, 23, 59));
+      setState(
+        () => _due = DateTime(picked.year, picked.month, picked.day, 23, 59),
+      );
     }
   }
 
@@ -721,8 +735,11 @@ class _NewCheckoutDialogState extends State<_NewCheckoutDialog> {
                 const SizedBox(height: 10),
                 Row(
                   children: [
-                    const Icon(Icons.check_circle,
-                        size: 18, color: Color(0xFF247A4A)),
+                    const Icon(
+                      Icons.check_circle,
+                      size: 18,
+                      color: Color(0xFF247A4A),
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -770,8 +787,9 @@ class _NewCheckoutDialogState extends State<_NewCheckoutDialog> {
                       for (final u in _availableUnits)
                         DropdownMenuItem(value: u, child: Text(u.id)),
                     ],
-                    onChanged:
-                        _item == null ? null : (u) => setState(() => _unit = u),
+                    onChanged: _item == null
+                        ? null
+                        : (u) => setState(() => _unit = u),
                   ),
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
@@ -786,7 +804,10 @@ class _NewCheckoutDialogState extends State<_NewCheckoutDialog> {
                 const SizedBox(height: 12),
                 Text(
                   _error!,
-                  style: const TextStyle(color: AppColors.csunRed, fontSize: 12),
+                  style: const TextStyle(
+                    color: AppColors.csunRed,
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ],
@@ -911,8 +932,11 @@ class _EmptyState extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const Icon(Icons.assignment_return_outlined,
-              size: 44, color: AppColors.muted),
+          const Icon(
+            Icons.assignment_return_outlined,
+            size: 44,
+            color: AppColors.muted,
+          ),
           const SizedBox(height: 12),
           Text(
             'Nothing checked out',
