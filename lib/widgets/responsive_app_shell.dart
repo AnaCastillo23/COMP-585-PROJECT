@@ -322,6 +322,7 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
           ),
           PopupMenuButton<String>(
             onSelected: _handleAccountAction,
+            color: Colors.white,
             itemBuilder: (context) => [
               PopupMenuItem(
                 value: 'switch-role',
@@ -542,6 +543,7 @@ class _TopBar extends StatelessWidget {
           const SizedBox(width: 8),
           PopupMenuButton<String>(
             onSelected: onAccountAction,
+            color: Colors.white,
             itemBuilder: (context) => [
               PopupMenuItem(
                 value: 'switch-role',
