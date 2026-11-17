@@ -12,6 +12,8 @@ class AppColors {
   static const border = Color(0xFFDDE1E6);
   static const success = Color(0xFF247A4A);
   static const warning = Color(0xFF9B6800);
+  static const softActionBackground = Color(0xFFF0EAEB);
+  static const softActionForeground = Color(0xFFA35F63);
 }
 
 class AppTheme {
