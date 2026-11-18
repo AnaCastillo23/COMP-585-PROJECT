@@ -64,9 +64,19 @@ class Equipment {
   /// The only categories staff can choose from.
   static const List<String> categories = [
     'Cameras',
+    'Camera Accessories',
+    'Accessory Kits',
+    'Audio Equipment',
+    'Lighting Equipment',
+    'Tripods',
+    'Green/Black Screens',
+    'Adapters',
+    'Sewing/Fiber Crafts',
+    'Virtual Reality',
+    // Legacy categories remain readable/editable until existing records have
+    // been reviewed and migrated.
     'Stabilizers',
     'Audio',
-    'Tripods',
     'Lighting',
     'Computers',
   ];
