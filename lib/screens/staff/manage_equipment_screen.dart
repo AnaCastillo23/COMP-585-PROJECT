@@ -65,7 +65,7 @@ class _ManageEquipmentScreenState extends State<ManageEquipmentScreen> {
         : null;
   }
 
-  List<Equipment> _filter(List<Equipment> all) {
+  List<Equipment> _filter(List<Equipment> all, String category) {
     final q = _searchController.text.trim().toLowerCase();
     final unitIdQuery = _unitIdQuery(all);
     bool statusOk(EquipmentUnit u) =>
@@ -73,8 +73,8 @@ class _ManageEquipmentScreenState extends State<ManageEquipmentScreen> {
 
     return all.where((item) {
       final matchesCategory =
-          _category == _allCategories || item.category == _category;
-      final matchesStatus = item.units.any(statusOk);
+          category == _allCategories || item.category == category;
+      final matchesStatus = _status == _allStatuses || item.units.any(statusOk);
 
       final matchesSearch = unitIdQuery != null
           ? item.units.any(
@@ -217,7 +217,17 @@ class _ManageEquipmentScreenState extends State<ManageEquipmentScreen> {
           }
 
           final all = snapshot.data!;
-          final filtered = _filter(all);
+          // Use the full inventory, not the search or status results. A
+          // category still belongs in the filter when its units are checked out.
+          final categoriesInUse = {for (final item in all) item.category};
+          final filterCategories = [
+            _allCategories,
+            ...Equipment.categories.where(categoriesInUse.contains),
+          ];
+          final selectedCategory = filterCategories.contains(_category)
+              ? _category
+              : _allCategories;
+          final filtered = _filter(all, selectedCategory);
           final unitIdQuery = _unitIdQuery(all);
           final statusFilter = _status == _allStatuses
               ? null
@@ -267,9 +277,9 @@ class _ManageEquipmentScreenState extends State<ManageEquipmentScreen> {
                 const SizedBox(height: 10),
                 _InventoryFilters(
                   searchController: _searchController,
-                  selectedCategory: _category,
+                  selectedCategory: selectedCategory,
                   selectedStatus: _status,
-                  categories: const [_allCategories, ...Equipment.categories],
+                  categories: filterCategories,
                   statuses: [
                     _allStatuses,
                     for (final s in EquipmentStatus.values) s.label,
@@ -311,7 +321,11 @@ class _ManageEquipmentScreenState extends State<ManageEquipmentScreen> {
                 const SizedBox(height: 10),
 
                 // Footer: count + page buttons
-                Row(
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 12,
+                  runSpacing: 6,
                   children: [
                     Text(
                       'Showing ${pageItems.length} of ${filtered.length} items'
@@ -321,24 +335,29 @@ class _ManageEquipmentScreenState extends State<ManageEquipmentScreen> {
                         fontSize: 12,
                       ),
                     ),
-                    const Spacer(),
-                    _PageButton(
-                      icon: Icons.chevron_left,
-                      onPressed: page > 0
-                          ? () => setState(() => _page = page - 1)
-                          : null,
-                    ),
-                    for (var i = 0; i < pageCount; i++)
-                      _PageButton(
-                        label: '${i + 1}',
-                        active: i == page,
-                        onPressed: () => setState(() => _page = i),
-                      ),
-                    _PageButton(
-                      icon: Icons.chevron_right,
-                      onPressed: page < pageCount - 1
-                          ? () => setState(() => _page = page + 1)
-                          : null,
+                    Wrap(
+                      alignment: WrapAlignment.end,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        _PageButton(
+                          icon: Icons.chevron_left,
+                          onPressed: page > 0
+                              ? () => setState(() => _page = page - 1)
+                              : null,
+                        ),
+                        for (var i = 0; i < pageCount; i++)
+                          _PageButton(
+                            label: '${i + 1}',
+                            active: i == page,
+                            onPressed: () => setState(() => _page = i),
+                          ),
+                        _PageButton(
+                          icon: Icons.chevron_right,
+                          onPressed: page < pageCount - 1
+                              ? () => setState(() => _page = page + 1)
+                              : null,
+                        ),
+                      ],
                     ),
                   ],
                 ),
