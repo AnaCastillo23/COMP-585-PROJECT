@@ -113,44 +113,94 @@ class _ManageEquipmentScreenState extends State<ManageEquipmentScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: const Color(0xFFFFFEFC),
-        title: Text(item.name),
+        title: Row(
+          children: [
+            Expanded(child: Text(item.name)),
+            IconButton(
+              tooltip: 'Edit equipment',
+              onPressed: () async {
+                Navigator.of(dialogContext).pop();
+                await Future<void>.delayed(Duration.zero);
+                if (!mounted) return;
+                await showEquipmentFormDialog(
+                  context,
+                  _service,
+                  existing: item,
+                );
+              },
+              icon: const Icon(Icons.edit_outlined),
+            ),
+          ],
+        ),
         content: SizedBox(
-          width: 440,
-          child: item.units.isEmpty
-              ? const Text('This item has no units.')
-              : SingleChildScrollView(
-                  child: DataTable(
-                    columns: const [
-                      DataColumn(label: Text('UNIT ID')),
-                      DataColumn(label: Text('STATUS')),
-                    ],
-                    rows: [
-                      for (final unit in item.units)
-                        DataRow(
-                          cells: [
-                            DataCell(
-                              Text(
-                                unit.id,
-                                style: const TextStyle(
-                                  fontFamily: 'monospace',
-                                  fontWeight: FontWeight.w700,
+          width: 460,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (item.description.isNotEmpty) ...[
+                Text(
+                  item.description,
+                  style: const TextStyle(color: AppColors.muted),
+                ),
+                const SizedBox(height: 12),
+              ],
+              Text(
+                '${item.category} • ${item.totalUnits} '
+                'unit${item.totalUnits == 1 ? '' : 's'}',
+                style: const TextStyle(
+                  color: AppColors.muted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Units',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 6),
+              if (item.units.isEmpty)
+                const Text(
+                  'This item has no units.',
+                  style: TextStyle(color: AppColors.muted),
+                )
+              else
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: DataTable(
+                      columns: const [
+                        DataColumn(label: Text('UNIT ID')),
+                        DataColumn(label: Text('STATUS')),
+                      ],
+                      rows: [
+                        for (final unit in item.units)
+                          DataRow(
+                            cells: [
+                              DataCell(
+                                Text(
+                                  unit.id,
+                                  style: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                               ),
-                            ),
-                            DataCell(
-                              Text(
-                                unit.status.label,
-                                style: TextStyle(
-                                  color: _statusColors(unit.status).$1,
-                                  fontWeight: FontWeight.w600,
+                              DataCell(
+                                _Pill(
+                                  label: unit.status.label,
+                                  foreground: _statusColors(unit.status).$1,
+                                  background: _statusColors(unit.status).$2,
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                    ],
+                            ],
+                          ),
+                      ],
+                    ),
                   ),
                 ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -521,6 +571,7 @@ class _InventoryTable extends StatelessWidget {
                 item: item,
                 unit: unit,
                 isWide: isWide,
+                onItemNameTap: () => onItemNameTap(item),
                 onEdit: () => onEdit(item),
                 onDelete: () => onDelete(item),
               ),
@@ -612,6 +663,7 @@ class _UnitSearchRow extends StatelessWidget {
     required this.item,
     required this.unit,
     required this.isWide,
+    required this.onItemNameTap,
     required this.onEdit,
     required this.onDelete,
   });
@@ -619,6 +671,7 @@ class _UnitSearchRow extends StatelessWidget {
   final Equipment item;
   final EquipmentUnit unit;
   final bool isWide;
+  final VoidCallback onItemNameTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -630,13 +683,22 @@ class _UnitSearchRow extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              item.name,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppColors.ink,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
+            child: InkWell(
+              onTap: onItemNameTap,
+              borderRadius: BorderRadius.circular(4),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+                child: Text(
+                  item.name,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.ink,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    decoration: TextDecoration.underline,
+                    decorationColor: AppColors.muted,
+                  ),
+                ),
               ),
             ),
           ),
