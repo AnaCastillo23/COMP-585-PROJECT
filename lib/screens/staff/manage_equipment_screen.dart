@@ -34,7 +34,7 @@ class ManageEquipmentScreen extends StatefulWidget {
 class _ManageEquipmentScreenState extends State<ManageEquipmentScreen> {
   static const _allCategories = 'All categories';
   static const _allStatuses = 'All statuses';
-  static const _pageSize = 5;
+  static const _pageSize = 10;
 
   late final EquipmentService _service =
       widget.equipmentService ?? FirestoreEquipmentService();
@@ -217,6 +217,8 @@ class _ManageEquipmentScreenState extends State<ManageEquipmentScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text('Delete ${item.name}?'),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
         content: Text(
           'This removes the item and its ${item.totalUnits} '
           'unit${item.totalUnits == 1 ? '' : 's'} from the inventory. '
@@ -312,14 +314,21 @@ class _ManageEquipmentScreenState extends State<ManageEquipmentScreen> {
                 // Section header (same pattern as "Recent activity")
                 Row(
                   children: [
-                    TextButton.icon(
+                    FilledButton.icon(
                       onPressed: () =>
                           showEquipmentFormDialog(context, _service),
                       icon: const Icon(Icons.add, size: 16),
                       label: const Text('Add equipment'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.csunRed,
-                        padding: EdgeInsets.zero,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.csunRed,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
                       ),
                     ),
                   ],
@@ -370,46 +379,40 @@ class _ManageEquipmentScreenState extends State<ManageEquipmentScreen> {
                   ),
                 const SizedBox(height: 10),
 
-                // Footer: count + page buttons
-                Wrap(
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 12,
-                  runSpacing: 6,
-                  children: [
-                    Text(
-                      'Showing ${pageItems.length} of ${filtered.length} items'
-                      '${filtered.length != all.length ? ' (${all.length} total)' : ''}',
-                      style: const TextStyle(
-                        color: AppColors.muted,
-                        fontSize: 12,
+                // Footer: count on its own line, pagination controls on the right.
+                Text(
+                  'Showing ${pageItems.length} of ${filtered.length} items'
+                  '${filtered.length != all.length ? ' (${all.length} total)' : ''}',
+                  style: const TextStyle(color: AppColors.muted, fontSize: 12),
+                ),
+                const SizedBox(height: 6),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Wrap(
+                    alignment: WrapAlignment.end,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 4,
+                    children: [
+                      _PageButton(
+                        icon: Icons.chevron_left,
+                        onPressed: page > 0
+                            ? () => setState(() => _page = page - 1)
+                            : null,
                       ),
-                    ),
-                    Wrap(
-                      alignment: WrapAlignment.end,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
+                      for (var i = 0; i < pageCount; i++)
                         _PageButton(
-                          icon: Icons.chevron_left,
-                          onPressed: page > 0
-                              ? () => setState(() => _page = page - 1)
-                              : null,
+                          label: '${i + 1}',
+                          active: i == page,
+                          onPressed: () => setState(() => _page = i),
                         ),
-                        for (var i = 0; i < pageCount; i++)
-                          _PageButton(
-                            label: '${i + 1}',
-                            active: i == page,
-                            onPressed: () => setState(() => _page = i),
-                          ),
-                        _PageButton(
-                          icon: Icons.chevron_right,
-                          onPressed: page < pageCount - 1
-                              ? () => setState(() => _page = page + 1)
-                              : null,
-                        ),
-                      ],
-                    ),
-                  ],
+                      _PageButton(
+                        icon: Icons.chevron_right,
+                        onPressed: page < pageCount - 1
+                            ? () => setState(() => _page = page + 1)
+                            : null,
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),

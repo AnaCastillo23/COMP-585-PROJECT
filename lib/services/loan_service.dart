@@ -19,13 +19,37 @@ class StudentInfo {
 
 class LoanService {
   LoanService({FirebaseFirestore? firestore})
-      : _db = firestore ?? FirebaseFirestore.instance;
+    : _db = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _db;
 
   /// Staff: find a student by their 9-digit CSUN ID.
   Future<StudentInfo?> findStudent(String csunId) async {
     final id = csunId.trim();
+    try {
+      final idDoc = await _db.collection('studentIds').doc(id).get();
+      if (idDoc.exists) {
+        final uid = idDoc.data()?['uid'] as String?;
+        if (uid != null) {
+          final userDoc = await _db.collection('users').doc(uid).get();
+          final d = userDoc.data();
+          if (userDoc.exists &&
+              d != null &&
+              (d['role'] == null || d['role'] == 'student')) {
+            return StudentInfo(
+              uid: uid,
+              studentId: id,
+              name:
+                  (d['name'] ?? d['displayName'] ?? d['email'] ?? 'Student')
+                      as String,
+            );
+          }
+        }
+      }
+    } on FirebaseException catch (e) {
+      if (e.code != 'permission-denied') rethrow;
+    }
+
     final snap = await _db
         .collection('users')
         .where('studentId', isEqualTo: id)
@@ -39,8 +63,8 @@ class LoanService {
     return StudentInfo(
       uid: doc.id,
       studentId: id,
-      name: (d['name'] ?? d['displayName'] ?? d['email'] ?? 'Student')
-          as String,
+      name:
+          (d['name'] ?? d['displayName'] ?? d['email'] ?? 'Student') as String,
     );
   }
 
@@ -48,7 +72,32 @@ class LoanService {
       .collection('loans')
       .where('returnedAt', isNull: true)
       .snapshots()
-      .map((s) => s.docs.map(Loan.fromDoc).toList());
+      .asyncMap((snapshot) async {
+        final loans = snapshot.docs.map(Loan.fromDoc).toList();
+        final equipmentIds = loans.map((loan) => loan.equipmentId).toSet();
+        if (equipmentIds.isEmpty) return <Loan>[];
+
+        final existing = <String>{};
+        const firestoreWhereInLimit = 30;
+        final ids = equipmentIds.toList();
+        for (var i = 0; i < ids.length; i += firestoreWhereInLimit) {
+          final chunk = ids.sublist(
+            i,
+            i + firestoreWhereInLimit > ids.length
+                ? ids.length
+                : i + firestoreWhereInLimit,
+          );
+          final types = await _db
+              .collection('equipment')
+              .where(FieldPath.documentId, whereIn: chunk)
+              .get();
+          existing.addAll(types.docs.map((doc) => doc.id));
+        }
+
+        return loans
+            .where((loan) => existing.contains(loan.equipmentId))
+            .toList();
+      });
 
   /// Needs a composite index (studentUid + checkedOutAt). Firestore logs a
   /// link to create it the first time this runs.
@@ -65,11 +114,12 @@ class LoanService {
     required StudentInfo student,
     required Equipment item,
     required EquipmentUnit unit,
-    required DateTime dueAt,
   }) {
     final unitRef = _db.collection('equipmentUnits').doc(unit.id);
     final loanRef = _db.collection('loans').doc();
     final reservationRef = _db.collection('reservations').doc(unit.id);
+    final now = DateTime.now();
+    final dueAt = DateTime(now.year, now.month, now.day + 14, 23, 59);
 
     return _db.runTransaction((tx) async {
       final snap = await tx.get(unitRef);
@@ -83,7 +133,8 @@ class LoanService {
       if (hold.exists) {
         final d = hold.data()!;
         final created = (d['createdAt'] as Timestamp?)?.toDate();
-        final live = created != null &&
+        final live =
+            created != null &&
             DateTime.now().isBefore(created.add(const Duration(hours: 24)));
         if (live && d['studentUid'] != student.uid) {
           throw StateError('${unit.id} is reserved for another student.');
@@ -108,7 +159,8 @@ class LoanService {
         ActivityService.record(
           type: 'Checkout',
           title: '${item.name} ${unit.id} checked out',
-          detail: '${ActivityService.maskedStudent(student.studentId)}'
+          detail:
+              '${ActivityService.maskedStudent(student.studentId)}'
               ' • due ${ActivityService.shortDate(dueAt)}',
           status: 'Checked out',
           unitId: unit.id,
@@ -132,7 +184,7 @@ class LoanService {
 
       final damaged = unitStatusAfter == EquipmentStatus.maintenance;
       final activity = _db.collection('activity');
- 
+
       // The return is always logged as completed...
       tx.set(
         activity.doc('${loan.id}_1return'),
@@ -144,7 +196,7 @@ class LoanService {
           unitId: loan.unitId,
         ),
       );
- 
+
       // ...and a damaged return adds its own Maintenance entry. Both get the
       // same server timestamp, so the doc IDs (_1 / _2) break the tie and
       // put the maintenance entry on top, since it happens after the return.
@@ -154,13 +206,14 @@ class LoanService {
           ActivityService.record(
             type: 'Maintenance',
             title: '${loan.equipmentName} ${loan.unitId} sent to maintenance',
-            detail: 'Reported damaged on return • '
+            detail:
+                'Reported damaged on return • '
                 '${ActivityService.maskedStudent(loan.studentId)}',
             status: 'Damaged',
             unitId: loan.unitId,
-        ),
-      );
-     }
+          ),
+        );
+      }
     });
   }
 }
