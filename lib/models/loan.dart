@@ -34,6 +34,15 @@ class Loan {
 
   factory Loan.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final d = doc.data()!;
+    final checkedOutAt =
+        (d['checkedOutAt'] as Timestamp?)?.toDate() ?? DateTime.now();
+    final dueAt = DateTime(
+      checkedOutAt.year,
+      checkedOutAt.month,
+      checkedOutAt.day + 14,
+      23,
+      59,
+    );
     return Loan(
       id: doc.id,
       studentUid: d['studentUid'] as String,
@@ -43,20 +52,20 @@ class Loan {
       equipmentName: d['equipmentName'] as String,
       unitId: d['unitId'] as String,
       // serverTimestamp is briefly null on the local snapshot after a write.
-      checkedOutAt:
-          (d['checkedOutAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      dueAt: (d['dueAt'] as Timestamp).toDate(),
+      checkedOutAt: checkedOutAt,
+      dueAt: dueAt,
       returnedAt: (d['returnedAt'] as Timestamp?)?.toDate(),
     );
   }
 }
+
 // Extensions must be top-level, outside the class.
 extension LoanToRental on Loan {
   Rental toRental() => Rental(
-        id: id,
-        equipmentName: equipmentName,
-        assetTag: unitId,
-        status: RentalStatus.checkedOut,
-        dueDate: dueAt,
-      );
+    id: id,
+    equipmentName: equipmentName,
+    assetTag: unitId,
+    status: RentalStatus.checkedOut,
+    dueDate: dueAt,
+  );
 }

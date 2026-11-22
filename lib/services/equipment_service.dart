@@ -26,7 +26,7 @@ abstract interface class EquipmentService {
 
 class FirestoreEquipmentService implements EquipmentService {
   FirestoreEquipmentService({FirebaseFirestore? firestore})
-      : _db = firestore ?? FirebaseFirestore.instance;
+    : _db = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _db;
   final Random _random = Random.secure();
@@ -61,8 +61,7 @@ class FirestoreEquipmentService implements EquipmentService {
           Equipment.fromMap(
             doc.id,
             doc.data(),
-            units: (byType[doc.id] ?? [])
-              ..sort((a, b) => a.id.compareTo(b.id)),
+            units: (byType[doc.id] ?? [])..sort((a, b) => a.id.compareTo(b.id)),
           ),
       ]);
     }
@@ -159,8 +158,33 @@ class FirestoreEquipmentService implements EquipmentService {
   Future<void> deleteEquipment(String id) async {
     final units = await _units.where('equipmentId', isEqualTo: id).get();
     final batch = _db.batch();
+
+    if (units.docs.isNotEmpty) {
+      final unitIds = units.docs.map((doc) => doc.id).toList();
+      const firestoreWhereInLimit = 30;
+      for (var i = 0; i < unitIds.length; i += firestoreWhereInLimit) {
+        final chunk = unitIds.sublist(
+          i,
+          i + firestoreWhereInLimit > unitIds.length
+              ? unitIds.length
+              : i + firestoreWhereInLimit,
+        );
+        final loans = await _db
+            .collection('loans')
+            .where('unitId', whereIn: chunk)
+            .where('returnedAt', isNull: true)
+            .get();
+        for (final loan in loans.docs) {
+          batch.update(loan.reference, {
+            'returnedAt': FieldValue.serverTimestamp(),
+          });
+        }
+      }
+    }
+
     for (final doc in units.docs) {
       batch.delete(doc.reference);
+      batch.delete(_db.collection('reservations').doc(doc.id));
     }
     batch.delete(_types.doc(id));
     await batch.commit();

@@ -34,7 +34,7 @@ class ManageEquipmentScreen extends StatefulWidget {
 class _ManageEquipmentScreenState extends State<ManageEquipmentScreen> {
   static const _allCategories = 'All categories';
   static const _allStatuses = 'All statuses';
-  static const _pageSize = 5;
+  static const _pageSize = 10;
 
   late final EquipmentService _service =
       widget.equipmentService ?? FirestoreEquipmentService();
@@ -113,44 +113,94 @@ class _ManageEquipmentScreenState extends State<ManageEquipmentScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: const Color(0xFFFFFEFC),
-        title: Text(item.name),
+        title: Row(
+          children: [
+            Expanded(child: Text(item.name)),
+            IconButton(
+              tooltip: 'Edit equipment',
+              onPressed: () async {
+                Navigator.of(dialogContext).pop();
+                await Future<void>.delayed(Duration.zero);
+                if (!mounted) return;
+                await showEquipmentFormDialog(
+                  context,
+                  _service,
+                  existing: item,
+                );
+              },
+              icon: const Icon(Icons.edit_outlined),
+            ),
+          ],
+        ),
         content: SizedBox(
-          width: 440,
-          child: item.units.isEmpty
-              ? const Text('This item has no units.')
-              : SingleChildScrollView(
-                  child: DataTable(
-                    columns: const [
-                      DataColumn(label: Text('UNIT ID')),
-                      DataColumn(label: Text('STATUS')),
-                    ],
-                    rows: [
-                      for (final unit in item.units)
-                        DataRow(
-                          cells: [
-                            DataCell(
-                              Text(
-                                unit.id,
-                                style: const TextStyle(
-                                  fontFamily: 'monospace',
-                                  fontWeight: FontWeight.w700,
+          width: 460,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (item.description.isNotEmpty) ...[
+                Text(
+                  item.description,
+                  style: const TextStyle(color: AppColors.muted),
+                ),
+                const SizedBox(height: 12),
+              ],
+              Text(
+                '${item.category} • ${item.totalUnits} '
+                'unit${item.totalUnits == 1 ? '' : 's'}',
+                style: const TextStyle(
+                  color: AppColors.muted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Units',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 6),
+              if (item.units.isEmpty)
+                const Text(
+                  'This item has no units.',
+                  style: TextStyle(color: AppColors.muted),
+                )
+              else
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: DataTable(
+                      columns: const [
+                        DataColumn(label: Text('UNIT ID')),
+                        DataColumn(label: Text('STATUS')),
+                      ],
+                      rows: [
+                        for (final unit in item.units)
+                          DataRow(
+                            cells: [
+                              DataCell(
+                                Text(
+                                  unit.id,
+                                  style: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                               ),
-                            ),
-                            DataCell(
-                              Text(
-                                unit.status.label,
-                                style: TextStyle(
-                                  color: _statusColors(unit.status).$1,
-                                  fontWeight: FontWeight.w600,
+                              DataCell(
+                                _Pill(
+                                  label: unit.status.label,
+                                  foreground: _statusColors(unit.status).$1,
+                                  background: _statusColors(unit.status).$2,
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                    ],
+                            ],
+                          ),
+                      ],
+                    ),
                   ),
                 ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -167,6 +217,8 @@ class _ManageEquipmentScreenState extends State<ManageEquipmentScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text('Delete ${item.name}?'),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
         content: Text(
           'This removes the item and its ${item.totalUnits} '
           'unit${item.totalUnits == 1 ? '' : 's'} from the inventory. '
@@ -262,14 +314,21 @@ class _ManageEquipmentScreenState extends State<ManageEquipmentScreen> {
                 // Section header (same pattern as "Recent activity")
                 Row(
                   children: [
-                    TextButton.icon(
+                    FilledButton.icon(
                       onPressed: () =>
                           showEquipmentFormDialog(context, _service),
                       icon: const Icon(Icons.add, size: 16),
                       label: const Text('Add equipment'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.csunRed,
-                        padding: EdgeInsets.zero,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.csunRed,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
                       ),
                     ),
                   ],
@@ -320,46 +379,40 @@ class _ManageEquipmentScreenState extends State<ManageEquipmentScreen> {
                   ),
                 const SizedBox(height: 10),
 
-                // Footer: count + page buttons
-                Wrap(
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 12,
-                  runSpacing: 6,
-                  children: [
-                    Text(
-                      'Showing ${pageItems.length} of ${filtered.length} items'
-                      '${filtered.length != all.length ? ' (${all.length} total)' : ''}',
-                      style: const TextStyle(
-                        color: AppColors.muted,
-                        fontSize: 12,
+                // Footer: count on its own line, pagination controls on the right.
+                Text(
+                  'Showing ${pageItems.length} of ${filtered.length} items'
+                  '${filtered.length != all.length ? ' (${all.length} total)' : ''}',
+                  style: const TextStyle(color: AppColors.muted, fontSize: 12),
+                ),
+                const SizedBox(height: 6),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Wrap(
+                    alignment: WrapAlignment.end,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 4,
+                    children: [
+                      _PageButton(
+                        icon: Icons.chevron_left,
+                        onPressed: page > 0
+                            ? () => setState(() => _page = page - 1)
+                            : null,
                       ),
-                    ),
-                    Wrap(
-                      alignment: WrapAlignment.end,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
+                      for (var i = 0; i < pageCount; i++)
                         _PageButton(
-                          icon: Icons.chevron_left,
-                          onPressed: page > 0
-                              ? () => setState(() => _page = page - 1)
-                              : null,
+                          label: '${i + 1}',
+                          active: i == page,
+                          onPressed: () => setState(() => _page = i),
                         ),
-                        for (var i = 0; i < pageCount; i++)
-                          _PageButton(
-                            label: '${i + 1}',
-                            active: i == page,
-                            onPressed: () => setState(() => _page = i),
-                          ),
-                        _PageButton(
-                          icon: Icons.chevron_right,
-                          onPressed: page < pageCount - 1
-                              ? () => setState(() => _page = page + 1)
-                              : null,
-                        ),
-                      ],
-                    ),
-                  ],
+                      _PageButton(
+                        icon: Icons.chevron_right,
+                        onPressed: page < pageCount - 1
+                            ? () => setState(() => _page = page + 1)
+                            : null,
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -540,6 +593,7 @@ class _InventoryTable extends StatelessWidget {
                 item: item,
                 unit: unit,
                 isWide: isWide,
+                onItemNameTap: () => onItemNameTap(item),
                 onEdit: () => onEdit(item),
                 onDelete: () => onDelete(item),
               ),
@@ -631,6 +685,7 @@ class _UnitSearchRow extends StatelessWidget {
     required this.item,
     required this.unit,
     required this.isWide,
+    required this.onItemNameTap,
     required this.onEdit,
     required this.onDelete,
   });
@@ -638,6 +693,7 @@ class _UnitSearchRow extends StatelessWidget {
   final Equipment item;
   final EquipmentUnit unit;
   final bool isWide;
+  final VoidCallback onItemNameTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -649,13 +705,22 @@ class _UnitSearchRow extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              item.name,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppColors.ink,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
+            child: InkWell(
+              onTap: onItemNameTap,
+              borderRadius: BorderRadius.circular(4),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+                child: Text(
+                  item.name,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.ink,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    decoration: TextDecoration.underline,
+                    decorationColor: AppColors.muted,
+                  ),
+                ),
               ),
             ),
           ),

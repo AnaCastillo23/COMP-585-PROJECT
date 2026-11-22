@@ -1,0 +1,55 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isStaff() {
+      return signedIn()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'staff';
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isStaff());
+      allow write: if signedIn() && request.auth.uid == uid;
+    }
+
+    match /studentIds/{studentId} {
+      allow read: if isStaff();
+      allow write: if signedIn()
+        && request.resource.data.uid == request.auth.uid;
+    }
+
+    match /equipment/{equipmentId} {
+      allow read: if signedIn();
+      allow write: if isStaff();
+    }
+
+    match /equipmentUnits/{unitId} {
+      allow read: if signedIn();
+      allow write: if isStaff();
+    }
+
+    match /loans/{loanId} {
+      allow read: if isStaff()
+        || (signedIn() && resource.data.studentUid == request.auth.uid);
+      allow write: if isStaff();
+    }
+
+    match /reservations/{reservationId} {
+      allow read: if signedIn();
+      allow write: if signedIn();
+    }
+
+    match /activity/{activityId} {
+      allow read: if signedIn();
+      allow write: if isStaff();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

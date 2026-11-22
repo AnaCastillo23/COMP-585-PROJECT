@@ -393,7 +393,6 @@ class _ActivityListState extends State<_ActivityList> {
 
   final _searchController = TextEditingController();
   String _selectedType = 'All activity types';
-  String _selectedStatus = 'All statuses';
   String _selectedRange = 'Last 7 days';
   int _page = 0;
 
@@ -418,10 +417,8 @@ class _ActivityListState extends State<_ActivityList> {
           '${e.title} ${e.detail}'.toLowerCase().contains(query);
       final matchesType =
           _selectedType == 'All activity types' || e.type == _selectedType;
-      final matchesStatus =
-          _selectedStatus == 'All statuses' || e.status == _selectedStatus;
       final matchesRange = cutoff == null || e.at.isAfter(cutoff);
-      return matchesSearch && matchesType && matchesStatus && matchesRange;
+      return matchesSearch && matchesType && matchesRange;
     }).toList();
   }
 
@@ -445,7 +442,6 @@ class _ActivityListState extends State<_ActivityList> {
     _updateFilter(() {
       _searchController.clear();
       _selectedType = 'All activity types';
-      _selectedStatus = 'All statuses';
       _selectedRange = 'Last 7 days';
     });
   }
@@ -454,7 +450,6 @@ class _ActivityListState extends State<_ActivityList> {
     _updateFilter(() {
       _searchController.clear();
       _selectedType = 'All activity types';
-      _selectedStatus = 'All statuses';
       _selectedRange = 'All time';
     });
   }
@@ -489,11 +484,9 @@ class _ActivityListState extends State<_ActivityList> {
         _ActivityFilters(
           searchController: _searchController,
           selectedType: _selectedType,
-          selectedStatus: _selectedStatus,
           selectedRange: _selectedRange,
           onSearchChanged: (_) => _updateFilter(() {}),
           onTypeChanged: (v) => _updateFilter(() => _selectedType = v!),
-          onStatusChanged: (v) => _updateFilter(() => _selectedStatus = v!),
           onRangeChanged: (v) => _updateFilter(() => _selectedRange = v!),
           onClear: _clearFilters,
         ),
@@ -642,22 +635,18 @@ class _ActivityFilters extends StatelessWidget {
   const _ActivityFilters({
     required this.searchController,
     required this.selectedType,
-    required this.selectedStatus,
     required this.selectedRange,
     required this.onSearchChanged,
     required this.onTypeChanged,
-    required this.onStatusChanged,
     required this.onRangeChanged,
     required this.onClear,
   });
 
   final TextEditingController searchController;
   final String selectedType;
-  final String selectedStatus;
   final String selectedRange;
   final ValueChanged<String> onSearchChanged;
   final ValueChanged<String?> onTypeChanged;
-  final ValueChanged<String?> onStatusChanged;
   final ValueChanged<String?> onRangeChanged;
   final VoidCallback onClear;
 
@@ -704,20 +693,6 @@ class _ActivityFilters extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: _ActivityDropdown(
-                value: selectedStatus,
-                items: const [
-                  'All statuses',
-                  'Completed',
-                  'Pickup pending',
-                  'Needs attention',
-                  'Checked out',
-                ],
-                onChanged: onStatusChanged,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _ActivityDropdown(
                 value: selectedRange,
                 items: const ['Last 7 days', 'Last 30 days', 'All time'],
                 onChanged: onRangeChanged,
@@ -744,9 +719,9 @@ class _ActivityFilters extends StatelessWidget {
             children: [
               controls[0],
               const SizedBox(height: 10),
-              Row(children: [controls[2], controls[3]]),
+              Row(children: [controls[2], controls[3], controls[4]]),
               const SizedBox(height: 10),
-              Row(children: [controls[4], controls[6]]),
+              Row(children: [controls[6]]),
             ],
           );
         },

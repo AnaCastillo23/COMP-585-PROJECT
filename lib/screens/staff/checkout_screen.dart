@@ -107,6 +107,8 @@ class _CheckoutsScreenState extends State<CheckoutsScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text('Return ${loan.unitId}?'),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
         content: Text(
           '${loan.equipmentName} from ${loan.studentName}. '
           'Mark it as damaged if it needs maintenance.',
@@ -190,14 +192,20 @@ class _CheckoutsScreenState extends State<CheckoutsScreen> {
                 const SizedBox(height: 22),
                 Row(
                   children: [
-                    const Spacer(),
-                    TextButton.icon(
+                    FilledButton.icon(
                       onPressed: _newCheckout,
                       icon: const Icon(Icons.add, size: 16),
                       label: const Text('New checkout'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.csunRed,
-                        padding: EdgeInsets.zero,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.csunRed,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
                       ),
                     ),
                   ],
@@ -213,7 +221,7 @@ class _CheckoutsScreenState extends State<CheckoutsScreen> {
                 ),
                 const SizedBox(height: 18),
                 if (all.isEmpty)
-                  _EmptyState(onNew: _newCheckout)
+                  const _EmptyState()
                 else if (filtered.isEmpty)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 48),
@@ -291,10 +299,20 @@ class _CheckoutFilters extends StatelessWidget {
     final search = TextField(
       controller: searchController,
       onChanged: onSearchChanged,
-      decoration: const InputDecoration(
+      decoration: InputDecoration(
         hintText: 'Search student, student ID, item, or unit ID',
         prefixIcon: Icon(Icons.search, size: 20),
         contentPadding: EdgeInsets.symmetric(horizontal: 12),
+        suffixIcon: searchController.text.isEmpty
+            ? null
+            : IconButton(
+                tooltip: 'Clear search',
+                icon: const Icon(Icons.close, size: 18),
+                onPressed: () {
+                  searchController.clear();
+                  onSearchChanged('');
+                },
+              ),
       ),
     );
     final dropdown = DropdownButtonFormField<String>(
@@ -591,7 +609,6 @@ class _NewCheckoutDialogState extends State<_NewCheckoutDialog> {
   StudentInfo? _student;
   Equipment? _item;
   EquipmentUnit? _unit;
-  DateTime _due = DateTime.now().add(const Duration(days: 7));
 
   bool _searching = false;
   bool _saving = false;
@@ -613,6 +630,11 @@ class _NewCheckoutDialogState extends State<_NewCheckoutDialog> {
             .where((u) => u.status == EquipmentStatus.available)
             .toList();
 
+  DateTime get _dueAt {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day + 14, 23, 59);
+  }
+
   Future<void> _findStudent() async {
     final id = _idController.text.trim();
     if (!RegExp(r'^[0-9]{9}$').hasMatch(id)) {
@@ -630,29 +652,18 @@ class _NewCheckoutDialogState extends State<_NewCheckoutDialog> {
       if (!mounted) return;
       setState(() {
         _student = student;
-        if (student == null) _error = 'No student found with that ID.';
+        if (student == null) _error = 'No user found.';
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'Lookup failed: $e');
+      final message =
+          e.toString().contains('permission-denied') ||
+              e.toString().contains('Missing or insufficient permissions')
+          ? 'Lookup unavailable: staff permission to student records is required.'
+          : 'Lookup failed. Please try again.';
+      setState(() => _error = message);
     } finally {
       if (mounted) setState(() => _searching = false);
-    }
-  }
-
-  Future<void> _pickDate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _due,
-      firstDate: now,
-      lastDate: now.add(const Duration(days: 180)),
-    );
-    if (picked != null) {
-      // Due at the end of the chosen day.
-      setState(
-        () => _due = DateTime(picked.year, picked.month, picked.day, 23, 59),
-      );
     }
   }
 
@@ -666,7 +677,6 @@ class _NewCheckoutDialogState extends State<_NewCheckoutDialog> {
         student: _student!,
         item: _item!,
         unit: _unit!,
-        dueAt: _due,
       );
       if (!mounted) return;
       Navigator.of(context).pop(true);
@@ -685,6 +695,8 @@ class _NewCheckoutDialogState extends State<_NewCheckoutDialog> {
 
     return AlertDialog(
       title: const Text('New checkout'),
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.transparent,
       content: SizedBox(
         width: 420,
         child: SingleChildScrollView(
@@ -703,7 +715,12 @@ class _NewCheckoutDialogState extends State<_NewCheckoutDialog> {
                       maxLength: 9,
                       onSubmitted: (_) => _findStudent(),
                       onChanged: (_) {
-                        if (_student != null) setState(() => _student = null);
+                        setState(() {
+                          _student = null;
+                          _error = null;
+                          _item = null;
+                          _unit = null;
+                        });
                       },
                       decoration: const InputDecoration(
                         labelText: 'Student ID',
@@ -751,7 +768,7 @@ class _NewCheckoutDialogState extends State<_NewCheckoutDialog> {
                 ),
               ],
 
-              // Step 2: equipment + unit + due date (after student is found)
+              // Step 2: equipment + unit (due date is fixed by the system)
               if (_student != null) ...[
                 const SizedBox(height: 18),
                 if (_availableItems.isEmpty)
@@ -792,10 +809,19 @@ class _NewCheckoutDialogState extends State<_NewCheckoutDialog> {
                         : (u) => setState(() => _unit = u),
                   ),
                   const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: _pickDate,
-                    icon: const Icon(Icons.event_outlined, size: 18),
-                    label: Text('Due ${_formatDate(_due)}'),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.schedule_outlined,
+                        size: 18,
+                        color: AppColors.muted,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Due in two weeks: ${_formatDate(_dueAt)}',
+                        style: const TextStyle(color: AppColors.muted),
+                      ),
+                    ],
                   ),
                 ],
               ],
@@ -916,9 +942,7 @@ class _PageButton extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.onNew});
-
-  final VoidCallback onNew;
+  const _EmptyState();
 
   @override
   Widget build(BuildContext context) {
@@ -947,12 +971,6 @@ class _EmptyState extends StatelessWidget {
             'Start a checkout to see active loans here.',
             style: TextStyle(color: AppColors.muted),
             textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: onNew,
-            icon: const Icon(Icons.add),
-            label: const Text('New checkout'),
           ),
         ],
       ),
