@@ -7,6 +7,30 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('item details open with carousel, name edit, and units', (
+    tester,
+  ) async {
+    final service = _InventoryFeed();
+    addTearDown(service.close);
+
+    await tester.pumpWidget(
+      MaterialApp(home: ManageEquipmentScreen(equipmentService: service)),
+    );
+    service.update([_camera]);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Test camera'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('item-details-image-carousel')),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('Edit equipment'), findsOneWidget);
+    expect(find.text('Units'), findsOneWidget);
+    expect(find.text('EQ-0100'), findsOneWidget);
+  });
+
   testWidgets('category filter shows only categories with equipment', (
     tester,
   ) async {

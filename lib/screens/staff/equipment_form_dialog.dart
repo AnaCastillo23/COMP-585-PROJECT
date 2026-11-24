@@ -127,6 +127,9 @@ class _EquipmentFormDialogState extends State<_EquipmentFormDialog> {
       availableUnits: old?.availableUnits ?? 0,
       totalUnits: old?.totalUnits ?? 0,
       imageBytes: _newImage ?? old?.imageBytes,
+      imageBytesList: _newImage != null
+          ? [_newImage!]
+          : old?.imageBytesList ?? const [],
       units: old?.units ?? const [],
     );
 

@@ -113,93 +113,79 @@ class _ManageEquipmentScreenState extends State<ManageEquipmentScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: const Color(0xFFFFFEFC),
-        title: Row(
-          children: [
-            Expanded(child: Text(item.name)),
-            IconButton(
-              tooltip: 'Edit equipment',
-              onPressed: () async {
-                Navigator.of(dialogContext).pop();
-                await Future<void>.delayed(Duration.zero);
-                if (!mounted) return;
-                await showEquipmentFormDialog(
-                  context,
-                  _service,
-                  existing: item,
-                );
-              },
-              icon: const Icon(Icons.edit_outlined),
-            ),
-          ],
-        ),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
         content: SizedBox(
-          width: 460,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (item.description.isNotEmpty) ...[
-                Text(
-                  item.description,
-                  style: const TextStyle(color: AppColors.muted),
-                ),
-                const SizedBox(height: 12),
-              ],
-              Text(
-                '${item.category} • ${item.totalUnits} '
-                'unit${item.totalUnits == 1 ? '' : 's'}',
-                style: const TextStyle(
-                  color: AppColors.muted,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Units',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 6),
-              if (item.units.isEmpty)
-                const Text(
-                  'This item has no units.',
-                  style: TextStyle(color: AppColors.muted),
-                )
-              else
-                Flexible(
-                  child: SingleChildScrollView(
-                    child: DataTable(
-                      columns: const [
-                        DataColumn(label: Text('UNIT ID')),
-                        DataColumn(label: Text('STATUS')),
-                      ],
-                      rows: [
-                        for (final unit in item.units)
-                          DataRow(
-                            cells: [
-                              DataCell(
-                                Text(
-                                  unit.id,
-                                  style: const TextStyle(
-                                    fontFamily: 'monospace',
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                              DataCell(
-                                _Pill(
-                                  label: unit.status.label,
-                                  foreground: _statusColors(unit.status).$1,
-                                  background: _statusColors(unit.status).$2,
-                                ),
-                              ),
-                            ],
-                          ),
-                      ],
+          width: 620,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ItemDetailsCarousel(item: item),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        item.name,
+                        style: const TextStyle(
+                          color: AppColors.ink,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
+                    IconButton(
+                      tooltip: 'Edit equipment',
+                      onPressed: () async {
+                        Navigator.of(dialogContext).pop();
+                        await Future<void>.delayed(Duration.zero);
+                        if (!mounted) return;
+                        await showEquipmentFormDialog(
+                          context,
+                          _service,
+                          existing: item,
+                        );
+                      },
+                      icon: const Icon(Icons.edit_outlined),
+                    ),
+                  ],
+                ),
+                if (item.description.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    item.description,
+                    style: const TextStyle(color: AppColors.muted),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                Text(
+                  '${item.category} • ${item.totalUnits} '
+                  'unit${item.totalUnits == 1 ? '' : 's'}',
+                  style: const TextStyle(
+                    color: AppColors.muted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-            ],
+                const SizedBox(height: 16),
+                const Text(
+                  'Units',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 6),
+                if (item.units.isEmpty)
+                  const Text(
+                    'This item has no units.',
+                    style: TextStyle(color: AppColors.muted),
+                  )
+                else
+                  SizedBox(
+                    width: double.infinity,
+                    child: _UnitsTable(units: item.units),
+                  ),
+              ],
+            ),
           ),
         ),
         actions: [
@@ -931,6 +917,184 @@ class _InventoryRow extends StatelessWidget {
                 ),
               ],
             ),
+    );
+  }
+}
+
+class _UnitsTable extends StatelessWidget {
+  const _UnitsTable({required this.units});
+
+  final List<EquipmentUnit> units;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Divider(height: 1, color: Color(0xFFD8DDE4)),
+        const SizedBox(
+          height: 44,
+          child: Row(
+            children: [
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 24),
+                  child: Text(
+                    'UNIT ID',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 24),
+                  child: Text(
+                    'STATUS',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1, color: Color(0xFFD8DDE4)),
+        for (var index = 0; index < units.length; index++) ...[
+          SizedBox(
+            height: 52,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Text(
+                      units[index].id,
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: _Pill(
+                        label: units[index].status.label,
+                        foreground: _statusColors(units[index].status).$1,
+                        background: _statusColors(units[index].status).$2,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (index < units.length - 1)
+            const Divider(height: 1, color: Color(0xFFD8DDE4)),
+        ],
+      ],
+    );
+  }
+}
+
+class _ItemDetailsCarousel extends StatefulWidget {
+  const _ItemDetailsCarousel({required this.item});
+
+  final Equipment item;
+
+  @override
+  State<_ItemDetailsCarousel> createState() => _ItemDetailsCarouselState();
+}
+
+class _ItemDetailsCarouselState extends State<_ItemDetailsCarousel> {
+  final _controller = PageController();
+  int _currentPage = 0;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final images = widget.item.imageBytesList.isNotEmpty
+        ? widget.item.imageBytesList
+        : (widget.item.imageBytes == null
+              ? const []
+              : [widget.item.imageBytes!]);
+    final pages = images.isEmpty
+        ? <Widget>[
+            ColoredBox(
+              color: const Color(0xFFF1F3F6),
+              child: Center(
+                child: Icon(widget.item.icon, size: 56, color: Colors.black38),
+              ),
+            ),
+          ]
+        : <Widget>[
+            for (final bytes in images)
+              SizedBox.expand(
+                child: Image.memory(
+                  bytes,
+                  fit: BoxFit.cover,
+                  gaplessPlayback: true,
+                  errorBuilder: (_, _, _) => ColoredBox(
+                    color: const Color(0xFFF1F3F6),
+                    child: Center(
+                      child: Icon(
+                        widget.item.icon,
+                        size: 56,
+                        color: Colors.black38,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ];
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: SizedBox(
+            height: 220,
+            width: double.infinity,
+            child: ColoredBox(
+              color: const Color(0xFFF1F3F6),
+              child: PageView(
+                key: const Key('item-details-image-carousel'),
+                controller: _controller,
+                onPageChanged: (index) => setState(() => _currentPage = index),
+                children: pages,
+              ),
+            ),
+          ),
+        ),
+        if (pages.length > 1) ...[
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              for (var index = 0; index < pages.length; index++)
+                Container(
+                  width: _currentPage == index ? 18 : 7,
+                  height: 7,
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  decoration: BoxDecoration(
+                    color: _currentPage == index
+                        ? AppColors.csunRed
+                        : const Color(0xFFC9CED6),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ],
     );
   }
 }

@@ -41,10 +41,7 @@ class EquipmentUnit {
   }
 
   Map<String, dynamic> toMap() {
-    return {
-      'equipmentId': equipmentId,
-      'status': status.name,
-    };
+    return {'equipmentId': equipmentId, 'status': status.name};
   }
 }
 
@@ -58,6 +55,7 @@ class Equipment {
     required this.totalUnits,
     this.icon = Icons.devices_other,
     this.imageBytes,
+    this.imageBytesList = const [],
     this.units = const [],
   });
 
@@ -106,6 +104,20 @@ class Equipment {
       }
     }
 
+    final encodedImages = map['imageBase64List'];
+    final images = <Uint8List>[];
+    if (encodedImages is List) {
+      for (final encodedImage in encodedImages) {
+        if (encodedImage is! String || encodedImage.isEmpty) continue;
+        try {
+          images.add(base64Decode(encodedImage));
+        } catch (_) {
+          // Ignore invalid images while preserving the rest of the carousel.
+        }
+      }
+    }
+    if (images.isEmpty && image != null) images.add(image);
+
     return Equipment(
       id: id,
       name: map['name'] as String? ?? '',
@@ -115,9 +127,11 @@ class Equipment {
       description: map['description'] as String? ?? '',
       // Counts come from the units themselves, so they can't drift.
       totalUnits: units.length,
-      availableUnits:
-          units.where((u) => u.status == EquipmentStatus.available).length,
+      availableUnits: units
+          .where((u) => u.status == EquipmentStatus.available)
+          .length,
       imageBytes: image,
+      imageBytesList: images,
       units: units,
     );
   }
@@ -128,6 +142,10 @@ class Equipment {
       'category': category,
       'description': description,
       if (imageBytes != null) 'imageBase64': base64Encode(imageBytes!),
+      if (imageBytesList.isNotEmpty)
+        'imageBase64List': [
+          for (final bytes in imageBytesList) base64Encode(bytes),
+        ],
     };
   }
 
@@ -139,6 +157,7 @@ class Equipment {
   final int totalUnits;
   final IconData icon;
   final Uint8List? imageBytes;
+  final List<Uint8List> imageBytesList;
   final List<EquipmentUnit> units;
 
   /// Can a student reserve this equipment right now?
@@ -156,6 +175,7 @@ class Equipment {
     int? totalUnits,
     IconData? icon,
     Uint8List? imageBytes,
+    List<Uint8List>? imageBytesList,
     List<EquipmentUnit>? units,
   }) {
     return Equipment(
@@ -167,6 +187,7 @@ class Equipment {
       totalUnits: totalUnits ?? this.totalUnits,
       icon: icon ?? this.icon,
       imageBytes: imageBytes ?? this.imageBytes,
+      imageBytesList: imageBytesList ?? this.imageBytesList,
       units: units ?? this.units,
     );
   }
