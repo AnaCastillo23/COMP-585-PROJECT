@@ -139,6 +139,10 @@ class _InventoryFeed implements EquipmentService {
   }) => throw UnimplementedError();
 
   @override
+  Future<void> restoreEquipment(Equipment equipment) =>
+      throw UnimplementedError();
+
+  @override
   Future<void> setUnitStatus(String unitId, EquipmentStatus status) =>
       throw UnimplementedError();
 

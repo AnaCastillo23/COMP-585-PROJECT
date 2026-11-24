@@ -159,16 +159,51 @@ class _EquipmentFormDialogState extends State<_EquipmentFormDialog> {
       if (!mounted) return;
       final messenger = ScaffoldMessenger.of(context);
       Navigator.of(context).pop();
-      messenger.showSnackBar(
+      const editNoticeDuration = Duration(seconds: 5);
+      var noticeDismissedByUndo = false;
+      final noticeController = messenger.showSnackBar(
         SnackBar(
+          duration: editNoticeDuration,
           content: Text(
             _isNew
                 ? 'Added ${item.name} with $count '
                       'unit${count == 1 ? '' : 's'}'
                 : 'Saved ${item.name}',
           ),
+          action: old == null
+              ? null
+              : SnackBarAction(
+                  label: 'Undo',
+                  onPressed: () async {
+                    noticeDismissedByUndo = true;
+                    messenger.hideCurrentSnackBar();
+                    try {
+                      await widget.service.restoreEquipment(old);
+                      messenger.clearSnackBars();
+                      messenger.showSnackBar(
+                        const SnackBar(
+                          duration: Duration(seconds: 5),
+                          content: Text('Edit undone'),
+                        ),
+                      );
+                    } catch (e) {
+                      messenger.clearSnackBars();
+                      messenger.showSnackBar(
+                        SnackBar(
+                          duration: const Duration(seconds: 5),
+                          content: Text('Could not undo: $e'),
+                        ),
+                      );
+                    }
+                  },
+                ),
         ),
       );
+      Future<void>.delayed(editNoticeDuration, () {
+        if (!noticeDismissedByUndo) {
+          noticeController.close();
+        }
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);

@@ -18,6 +18,9 @@ abstract interface class EquipmentService {
     required EquipmentStatus newUnitStatus,
   });
 
+  /// Restores an equipment type and its exact previous unit snapshot.
+  Future<void> restoreEquipment(Equipment equipment);
+
   Future<void> setUnitStatus(String unitId, EquipmentStatus status);
 
   /// Deletes the item and all of its units.
@@ -137,6 +140,33 @@ class FirestoreEquipmentService implements EquipmentService {
       }
 
       return typeRef.id;
+    });
+  }
+
+  @override
+  Future<void> restoreEquipment(Equipment equipment) async {
+    final typeRef = _types.doc(equipment.id);
+    final currentUnits = await _units
+        .where('equipmentId', isEqualTo: equipment.id)
+        .get();
+
+    await _db.runTransaction<void>((tx) async {
+      tx.set(typeRef, equipment.toMap(), SetOptions(merge: true));
+
+      for (final unit in currentUnits.docs) {
+        tx.delete(unit.reference);
+      }
+
+      for (final unit in equipment.units) {
+        tx.set(
+          _units.doc(unit.id),
+          EquipmentUnit(
+            id: unit.id,
+            equipmentId: equipment.id,
+            status: unit.status,
+          ).toMap(),
+        );
+      }
     });
   }
 
