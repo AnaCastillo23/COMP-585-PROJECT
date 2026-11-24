@@ -6,7 +6,6 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/utils/image_compress.dart';
 import '../../models/equipment.dart';
 import '../../services/equipment_service.dart';
-import '../../widgets/equipment_image.dart';
 
 Future<void> showEquipmentFormDialog(
   BuildContext context,
@@ -49,7 +48,12 @@ class _EquipmentFormDialogState extends State<_EquipmentFormDialog> {
   // Applies to units created by this save.
   EquipmentStatus _status = EquipmentStatus.available;
 
-  Uint8List? _newImage; // compressed bytes, only set when staff pick a new one
+  late final List<Uint8List> _images =
+      widget.existing?.imageBytesList.isNotEmpty == true
+      ? List<Uint8List>.from(widget.existing!.imageBytesList)
+      : widget.existing?.imageBytes != null
+      ? [widget.existing!.imageBytes!]
+      : <Uint8List>[];
   bool _processingImage = false;
   bool _saving = false;
 
@@ -67,25 +71,39 @@ class _EquipmentFormDialogState extends State<_EquipmentFormDialog> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
-  Future<void> _pickImage() async {
-    final file = await _picker.pickImage(source: ImageSource.gallery);
-    if (file == null) return;
+  Future<void> _pickImages() async {
+    if (_images.length >= 5) {
+      _showMessage('A maximum of 5 images is allowed.');
+      return;
+    }
+
+    final files = await _picker.pickMultiImage();
+    if (files.isEmpty) return;
 
     setState(() => _processingImage = true);
     // Let the spinner paint before the (synchronous) compression runs.
     await Future<void>.delayed(const Duration(milliseconds: 50));
 
-    final original = await file.readAsBytes();
-    final compressed = compressImage(original);
+    final remaining = 5 - _images.length;
+    var invalidCount = 0;
+    for (final file in files.take(remaining)) {
+      final original = await file.readAsBytes();
+      final compressed = compressImage(original);
+      if (compressed == null) {
+        invalidCount++;
+      } else {
+        _images.add(compressed);
+      }
+    }
 
     if (!mounted) return;
     setState(() => _processingImage = false);
 
-    if (compressed == null) {
-      _showMessage('Could not use that image. Try a different photo.');
-      return;
+    if (_images.length == 5 && files.length > remaining) {
+      _showMessage('Only the first 5 images were added.');
+    } else if (invalidCount > 0) {
+      _showMessage('One or more images could not be used.');
     }
-    setState(() => _newImage = compressed);
   }
 
   Future<void> _save() async {
@@ -126,10 +144,8 @@ class _EquipmentFormDialogState extends State<_EquipmentFormDialog> {
       description: _description.text.trim(),
       availableUnits: old?.availableUnits ?? 0,
       totalUnits: old?.totalUnits ?? 0,
-      imageBytes: _newImage ?? old?.imageBytes,
-      imageBytesList: _newImage != null
-          ? [_newImage!]
-          : old?.imageBytesList ?? const [],
+      imageBytes: _images.isNotEmpty ? _images.first : null,
+      imageBytesList: _images,
       units: old?.units ?? const [],
     );
 
@@ -161,32 +177,76 @@ class _EquipmentFormDialogState extends State<_EquipmentFormDialog> {
   }
 
   Widget _preview() {
-    final Widget content;
     if (_processingImage) {
-      content = const Center(child: CircularProgressIndicator());
-    } else if (_newImage != null) {
-      content = Image.memory(_newImage!, fit: BoxFit.cover);
-    } else if (widget.existing != null) {
-      content = EquipmentImage(equipment: widget.existing!);
-    } else {
-      content = const Center(
-        child: Icon(Icons.image_outlined, size: 40, color: Colors.black38),
+      return const SizedBox(
+        height: 150,
+        child: Center(child: CircularProgressIndicator()),
       );
     }
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: SizedBox(
-        height: 150,
-        width: double.infinity,
-        child: ColoredBox(color: const Color(0xFFF1F3F6), child: content),
-      ),
+    if (_images.isEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: const SizedBox(
+          height: 150,
+          width: double.infinity,
+          child: ColoredBox(
+            color: Color(0xFFF1F3F6),
+            child: Center(
+              child: Icon(
+                Icons.image_outlined,
+                size: 40,
+                color: Colors.black38,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (var index = 0; index < _images.length; index++)
+          Stack(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: SizedBox(
+                  width: 128,
+                  height: 128,
+                  child: Image.memory(_images[index], fit: BoxFit.cover),
+                ),
+              ),
+              Positioned(
+                top: 4,
+                right: 4,
+                child: InkWell(
+                  key: Key('remove-equipment-image-$index'),
+                  onTap: () => setState(() => _images.removeAt(index)),
+                  borderRadius: BorderRadius.circular(16),
+                  child: const DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Color(0xCCFFFFFF),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(Icons.close, size: 18),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final hasImage = _newImage != null || widget.existing?.imageBytes != null;
+    final hasImage = _images.isNotEmpty;
 
     return AlertDialog(
       backgroundColor: Colors.white,
@@ -203,9 +263,16 @@ class _EquipmentFormDialogState extends State<_EquipmentFormDialog> {
                 _preview(),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
-                  onPressed: (_saving || _processingImage) ? null : _pickImage,
+                  onPressed:
+                      (_saving || _processingImage || _images.length >= 5)
+                      ? null
+                      : _pickImages,
                   icon: const Icon(Icons.upload_outlined),
-                  label: Text(hasImage ? 'Change image' : 'Upload image'),
+                  label: Text(
+                    hasImage
+                        ? 'Add images (${_images.length}/5)'
+                        : 'Upload images',
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(

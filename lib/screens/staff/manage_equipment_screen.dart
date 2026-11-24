@@ -1039,7 +1039,8 @@ class _ItemDetailsCarouselState extends State<_ItemDetailsCarousel> {
               SizedBox.expand(
                 child: Image.memory(
                   bytes,
-                  fit: BoxFit.cover,
+                  fit: BoxFit.contain,
+                  alignment: Alignment.center,
                   gaplessPlayback: true,
                   errorBuilder: (_, _, _) => ColoredBox(
                     color: const Color(0xFFF1F3F6),
@@ -1061,7 +1062,7 @@ class _ItemDetailsCarouselState extends State<_ItemDetailsCarousel> {
         ClipRRect(
           borderRadius: BorderRadius.circular(18),
           child: SizedBox(
-            height: 220,
+            height: 260,
             width: double.infinity,
             child: ColoredBox(
               color: const Color(0xFFF1F3F6),

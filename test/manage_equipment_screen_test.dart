@@ -7,6 +7,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'equipment form advertises multiple images with a five image limit',
+    (tester) async {
+      final service = _InventoryFeed();
+      addTearDown(service.close);
+
+      await tester.pumpWidget(
+        MaterialApp(home: ManageEquipmentScreen(equipmentService: service)),
+      );
+      service.update([_camera]);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Add equipment'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Upload images'), findsOneWidget);
+    },
+  );
+
   testWidgets('item details open with carousel, name edit, and units', (
     tester,
   ) async {
