@@ -1,3 +1,4 @@
+// lib/screens/student/equipment_catalog.dart
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/mock_data.dart';
 import '../../models/equipment.dart';
+import '../../services/equipment_service.dart';
 import '../../services/reservation_service.dart';
 import '../../widgets/equipment_card.dart';
 import '../../widgets/equipment_reservation_flow.dart';
@@ -13,10 +15,15 @@ class EquipmentCatalogScreen extends StatefulWidget {
   const EquipmentCatalogScreen({
     super.key,
     this.reservationService,
+    this.equipmentService,
     this.studentUid = 'prototype-student',
   });
 
   final ReservationService? reservationService;
+
+  /// When provided, the catalog shows the real inventory from this service.
+  /// When null (widget tests), it falls back to [mockEquipment].
+  final EquipmentService? equipmentService;
 
   // Temporary fallback until authentication passes the signed-in UID.
   final String studentUid;
@@ -28,6 +35,10 @@ class EquipmentCatalogScreen extends StatefulWidget {
 class _EquipmentCatalogScreenState extends State<EquipmentCatalogScreen> {
   late final ReservationService _reservationService;
 
+  // Created once so typing in the search box doesn't restart the stream.
+  late final Stream<List<Equipment>>? _stream =
+      widget.equipmentService?.watchEquipment();
+
   String _query = '';
   String _category = 'All';
 
@@ -38,15 +49,15 @@ class _EquipmentCatalogScreenState extends State<EquipmentCatalogScreen> {
         widget.reservationService ?? InMemoryReservationService.shared;
   }
 
-  List<String> get _categories => [
+  List<String> _categoriesOf(List<Equipment> all) => [
     'All',
-    ...{for (final item in mockEquipment) item.category},
+    ...{for (final item in all) item.category},
   ];
 
-  List<Equipment> get _filteredEquipment {
+  List<Equipment> _filter(List<Equipment> all) {
     final normalizedQuery = _query.trim().toLowerCase();
 
-    return mockEquipment.where((item) {
+    return all.where((item) {
       final matchesCategory = _category == 'All' || item.category == _category;
       final matchesSearch =
           normalizedQuery.isEmpty ||
@@ -70,7 +81,33 @@ class _EquipmentCatalogScreenState extends State<EquipmentCatalogScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _filteredEquipment;
+    final stream = _stream;
+    if (stream == null) {
+      return _buildCatalog(mockEquipment);
+    }
+
+    return StreamBuilder<List<Equipment>>(
+      stream: stream,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text('Could not load equipment.\n${snapshot.error}'),
+            ),
+          );
+        }
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        return _buildCatalog(snapshot.data!);
+      },
+    );
+  }
+
+  Widget _buildCatalog(List<Equipment> all) {
+    final filtered = _filter(all);
+    final categories = _categoriesOf(all);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -109,7 +146,7 @@ class _EquipmentCatalogScreenState extends State<EquipmentCatalogScreen> {
                 scrollDirection: Axis.horizontal,
                 child: Row(
                   children: [
-                    for (final category in _categories) ...[
+                    for (final category in categories) ...[
                       FilterChip(
                         label: Text(category),
                         selected: _category == category,

@@ -1,9 +1,11 @@
+// lib/screens/staff/manage_equipment_screen.dart
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../models/equipment.dart';
 import '../../services/equipment_service.dart';
 import '../../widgets/equipment_image.dart';
+import 'equipment_detail_screen.dart';
 import 'equipment_form_dialog.dart';
 
 (Color, Color) _statusColors(EquipmentStatus status) => switch (status) {
@@ -19,10 +21,10 @@ import 'equipment_form_dialog.dart';
           const Color(0xFFB36B00),
           const Color(0xFFFFEBCB),
         ),
-        EquipmentStatus.reserved => (
+      EquipmentStatus.reserved => (
           const Color(0xFF8A5BB5),
           const Color(0xFFEFE3FA),
-),
+        ),
     };
 
 class ManageEquipmentScreen extends StatefulWidget {
@@ -57,39 +59,39 @@ class _ManageEquipmentScreenState extends State<ManageEquipmentScreen> {
   }
 
   // Returns the unit ID if the search text exactly matches one, else null.
-String? _exactUnitId(List<Equipment> all) {
-  final q = _searchController.text.trim().toLowerCase();
-  if (q.isEmpty) return null;
+  String? _exactUnitId(List<Equipment> all) {
+    final q = _searchController.text.trim().toLowerCase();
+    if (q.isEmpty) return null;
 
-  for (final item in all) {
-    for (final u in item.units) {
-      if (u.id.toLowerCase() == q) return u.id;
+    for (final item in all) {
+      for (final u in item.units) {
+        if (u.id.toLowerCase() == q) return u.id;
+      }
     }
+    return null;
   }
-  return null;
-}
 
-List<Equipment> _filter(List<Equipment> all) {
-  final q = _searchController.text.trim().toLowerCase();
-  final exactId = _exactUnitId(all);
-  bool statusOk(EquipmentUnit u) =>
-      _status == _allStatuses || u.status.label == _status;
+  List<Equipment> _filter(List<Equipment> all) {
+    final q = _searchController.text.trim().toLowerCase();
+    final exactId = _exactUnitId(all);
+    bool statusOk(EquipmentUnit u) =>
+        _status == _allStatuses || u.status.label == _status;
 
-  return all.where((item) {
-    final matchesCategory =
-        _category == _allCategories || item.category == _category;
-    final matchesStatus = item.units.any(statusOk);
+    return all.where((item) {
+      final matchesCategory =
+          _category == _allCategories || item.category == _category;
+      final matchesStatus = item.units.any(statusOk);
 
-    final matchesSearch = q.isEmpty ||
-        (exactId != null
-            ? item.units.any((u) => u.id == exactId && statusOk(u))
-            : item.name.toLowerCase().contains(q) ||
-                item.category.toLowerCase().contains(q) ||
-                item.units.any((u) => u.id.toLowerCase().contains(q)));
+      final matchesSearch = q.isEmpty ||
+          (exactId != null
+              ? item.units.any((u) => u.id == exactId && statusOk(u))
+              : item.name.toLowerCase().contains(q) ||
+                  item.category.toLowerCase().contains(q) ||
+                  item.units.any((u) => u.id.toLowerCase().contains(q)));
 
-    return matchesCategory && matchesStatus && matchesSearch;
-  }).toList();
-}
+      return matchesCategory && matchesStatus && matchesSearch;
+    }).toList();
+  }
 
   // Any filter change sends the user back to page 1.
   void _updateFilter(VoidCallback update) {
@@ -107,53 +109,15 @@ List<Equipment> _filter(List<Equipment> all) {
     });
   }
 
-  void _showMessage(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
-  }
-
-  Future<void> _setStatus(EquipmentUnit unit, EquipmentStatus status) async {
-    try {
-      await _service.setUnitStatus(unit.id, status);
-    } catch (e) {
-      if (!mounted) return;
-      _showMessage('Could not update ${unit.id}: $e');
-    }
-  }
-
-  Future<void> _delete(Equipment item) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text('Delete ${item.name}?'),
-        content: Text(
-          'This removes the item and its ${item.totalUnits} '
-          'unit${item.totalUnits == 1 ? '' : 's'} from the inventory. '
-          'This cannot be undone.',
+  void _openDetail(Equipment item) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => EquipmentDetailScreen(
+          equipment: item,
+          equipmentService: _service,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.csunRed),
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Delete'),
-          ),
-        ],
       ),
     );
-
-    if (confirmed != true || !mounted) return;
-
-    try {
-      await _service.deleteEquipment(item.id);
-      if (!mounted) return;
-      _showMessage('Deleted ${item.name}');
-    } catch (e) {
-      if (!mounted) return;
-      _showMessage('Could not delete: $e');
-    }
   }
 
   @override
@@ -201,7 +165,7 @@ List<Equipment> _filter(List<Equipment> all) {
                 const SizedBox(height: 6),
                 const Text(
                   'Every unit has its own ID. Open an item to see and '
-                  'manage its units.',
+                  'manage its units, waitlist, and care guide.',
                   style: TextStyle(color: AppColors.muted),
                 ),
                 const SizedBox(height: 22),
@@ -256,13 +220,7 @@ List<Equipment> _filter(List<Equipment> all) {
                         onlyUnitId: exactId,
                         statusFilter: statusFilter,
                         isWide: constraints.maxWidth >= 700,
-                        onEdit: (item) => showEquipmentFormDialog(
-                          context,
-                          _service,
-                          existing: item,
-                        ),
-                        onDelete: _delete,
-                        onUnitStatus: _setStatus,
+                        onOpen: _openDetail,
                       );
                     },
                   ),
@@ -274,14 +232,17 @@ List<Equipment> _filter(List<Equipment> all) {
                     Text(
                       'Showing ${pageItems.length} of ${filtered.length} items'
                       '${filtered.length != all.length ? ' (${all.length} total)' : ''}',
-                      style:
-                          const TextStyle(color: AppColors.muted, fontSize: 12),
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 12,
+                      ),
                     ),
                     const Spacer(),
                     _PageButton(
                       icon: Icons.chevron_left,
-                      onPressed:
-                          page > 0 ? () => setState(() => _page = page - 1) : null,
+                      onPressed: page > 0
+                          ? () => setState(() => _page = page - 1)
+                          : null,
                     ),
                     for (var i = 0; i < pageCount; i++)
                       _PageButton(
@@ -337,7 +298,7 @@ class _InventoryFilters extends StatelessWidget {
       controller: searchController,
       onChanged: onSearchChanged,
       decoration: const InputDecoration(
-        hintText: 'Search by name or unit ID(e.g. EQ-0000)',
+        hintText: 'Search by name or unit ID (e.g. EQ-0000)',
         prefixIcon: Icon(Icons.search, size: 20),
         contentPadding: EdgeInsets.symmetric(horizontal: 12),
       ),
@@ -443,18 +404,14 @@ class _InventoryTable extends StatelessWidget {
     required this.isWide,
     required this.onlyUnitId,
     required this.statusFilter,
-    required this.onEdit,
-    required this.onDelete,
-    required this.onUnitStatus,
+    required this.onOpen,
   });
 
   final List<Equipment> items;
   final bool isWide;
-  final String? onlyUnitId; // if non-null, only this unit is shown (search match)
-  final EquipmentStatus? statusFilter; // if non-null, only units with this status are shown
-  final void Function(Equipment item) onEdit;
-  final void Function(Equipment item) onDelete;
-  final void Function(EquipmentUnit unit, EquipmentStatus status) onUnitStatus;
+  final String? onlyUnitId; // if non-null, only this unit is counted (search match)
+  final EquipmentStatus? statusFilter; // if non-null, only units with this status are counted
+  final void Function(Equipment item) onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -474,9 +431,7 @@ class _InventoryTable extends StatelessWidget {
               onlyUnitId: onlyUnitId,
               statusFilter: statusFilter,
               isWide: isWide,
-              onEdit: () => onEdit(items[i]),
-              onDelete: () => onDelete(items[i]),
-              onUnitStatus: onUnitStatus,
+              onOpen: () => onOpen(items[i]),
             ),
             if (i != items.length - 1)
               const Divider(height: 1, color: AppColors.border),
@@ -492,8 +447,8 @@ class _InventoryHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Left padding matches the row's tilePadding; right SizedBox leaves room
-    // for the expand arrow.
+    // Horizontal padding matches the row; the right SizedBox is the width of
+    // the row's chevron icon.
     return const Padding(
       padding: EdgeInsets.symmetric(horizontal: 18, vertical: 12),
       child: Row(
@@ -502,7 +457,7 @@ class _InventoryHeader extends StatelessWidget {
           Expanded(flex: 2, child: _HeaderLabel('CATEGORY')),
           Expanded(flex: 2, child: _HeaderLabel('AVAILABILITY')),
           Expanded(flex: 4, child: _HeaderLabel('UNIT STATUS')),
-          SizedBox(width: 40),
+          SizedBox(width: 24),
         ],
       ),
     );
@@ -534,23 +489,18 @@ class _InventoryRow extends StatelessWidget {
     required this.isWide,
     required this.onlyUnitId,
     required this.statusFilter,
-    required this.onEdit,
-    required this.onDelete,
-    required this.onUnitStatus,
+    required this.onOpen,
   });
 
   final Equipment item;
   final bool isWide;
-  final String? onlyUnitId; // non-null = show just this unit
-  final EquipmentStatus? statusFilter; // non-null = show only units with this status
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-  final void Function(EquipmentUnit unit, EquipmentStatus status) onUnitStatus;
+  final String? onlyUnitId; // non-null = count just this unit
+  final EquipmentStatus? statusFilter; // non-null = count only units with this status
+  final VoidCallback onOpen;
 
-  
   bool get _isFiltered => onlyUnitId != null || statusFilter != null;
 
-  // Units this row displays: narrowed by exact ID and/or status filter.
+  // Units this row summarizes: narrowed by exact ID and/or status filter.
   List<EquipmentUnit> get _units => item.units
       .where((u) =>
           (onlyUnitId == null || u.id == onlyUnitId) &&
@@ -573,8 +523,8 @@ class _InventoryRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final units = _units;
     final availableText = _isFiltered
-    ? '${units.length} of ${item.totalUnits} units'
-    : '${_count(EquipmentStatus.available)} of ${units.length} available';
+        ? '${units.length} of ${item.totalUnits} units'
+        : '${_count(EquipmentStatus.available)} of ${units.length} available';
 
     final statusArea = units.isEmpty
         ? const Text(
@@ -583,113 +533,80 @@ class _InventoryRow extends StatelessWidget {
           )
         : Wrap(spacing: 6, runSpacing: 4, children: _statusPills());
 
-    return Theme(
-      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-      child: ExpansionTile(
-        key: ValueKey(
-          '${item.id}-${onlyUnitId ?? 'all'}-${statusFilter?.name ?? 'any'}',
-        ),
-        initiallyExpanded: _isFiltered,
-        tilePadding: EdgeInsets.symmetric(
+    return InkWell(
+      onTap: onOpen,
+      child: Padding(
+        padding: EdgeInsets.symmetric(
           horizontal: isWide ? 18 : 14,
-          vertical: 4,
+          vertical: 12,
         ),
-        childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 14),
-        expandedCrossAxisAlignment: CrossAxisAlignment.start,
-        title: isWide
-            ? Row(
-                children: [
-                  Expanded(flex: 5, child: _ItemSummary(item: item)),
-                  Expanded(
-                    flex: 2,
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: _Pill(
-                        label: item.category,
-                        foreground: AppColors.muted,
-                        background: const Color(0xFFE9EDF2),
-                      ),
+        child: Row(
+          children: [
+            Expanded(
+              child: isWide
+                  ? Row(
+                      children: [
+                        Expanded(flex: 5, child: _ItemSummary(item: item)),
+                        Expanded(
+                          flex: 2,
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: _Pill(
+                              label: item.category,
+                              foreground: AppColors.muted,
+                              background: const Color(0xFFE9EDF2),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Text(
+                            availableText,
+                            style: const TextStyle(
+                              color: AppColors.muted,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                        Expanded(flex: 4, child: statusArea),
+                      ],
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _ItemSummary(item: item),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            _Pill(
+                              label: item.category,
+                              foreground: AppColors.muted,
+                              background: const Color(0xFFE9EDF2),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              availableText,
+                              style: const TextStyle(
+                                color: AppColors.muted,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        statusArea,
+                      ],
                     ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      availableText,
-                      style: const TextStyle(
-                          color: AppColors.muted, fontSize: 12),
-                    ),
-                  ),
-                  Expanded(flex: 4, child: statusArea),
-                ],
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _ItemSummary(item: item),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      _Pill(
-                        label: item.category,
-                        foreground: AppColors.muted,
-                        background: const Color(0xFFE9EDF2),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        availableText,
-                        style: const TextStyle(
-                            color: AppColors.muted, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  statusArea,
-                ],
-              ),
-        children: [
-          const Text(
-            'Units — tap an ID to change its status',
-            style: TextStyle(color: AppColors.muted, fontSize: 12),
-          ),
-          const SizedBox(height: 8),
-          if (units.isEmpty)
-            const Text('This item has no units.')
-          else
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final unit in units)
-                  _UnitChip(
-                    unit: unit,
-                    onChanged: (status) => onUnitStatus(unit, status),
-                  ),
-              ],
             ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              OutlinedButton.icon(
-                onPressed: onEdit,
-                icon: const Icon(Icons.edit_outlined, size: 18),
-                label: const Text('Edit'),
-              ),
-              const SizedBox(width: 8),
-              TextButton.icon(
-                onPressed: onDelete,
-                style: TextButton.styleFrom(foregroundColor: AppColors.csunRed),
-                icon: const Icon(Icons.delete_outline, size: 18),
-                label: const Text('Delete'),
-              ),
-            ],
-          ),
-        ],
+            const Icon(Icons.chevron_right, color: AppColors.muted),
+          ],
+        ),
       ),
     );
   }
 }
 
-/// Image + name + description (equivalent of _ActivitySummary).
+/// Image + name + description.
 class _ItemSummary extends StatelessWidget {
   const _ItemSummary({required this.item});
 
@@ -772,55 +689,6 @@ class _Pill extends StatelessWidget {
   }
 }
 
-class _UnitChip extends StatelessWidget {
-  const _UnitChip({required this.unit, required this.onChanged});
-
-  final EquipmentUnit unit;
-  final ValueChanged<EquipmentStatus> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final (foreground, background) = _statusColors(unit.status);
-
-    return PopupMenuButton<EquipmentStatus>(
-      tooltip: 'Change status',
-      initialValue: unit.status,
-      onSelected: onChanged,
-      itemBuilder: (_) => [
-        for (final s in EquipmentStatus.values)
-          PopupMenuItem(value: s, child: Text(s.label)),
-      ],
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: background,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              unit.id,
-              style: TextStyle(
-                color: foreground,
-                fontFamily: 'monospace',
-                fontWeight: FontWeight.w700,
-                fontSize: 12,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              unit.status.label,
-              style: TextStyle(color: foreground, fontSize: 11),
-            ),
-            Icon(Icons.arrow_drop_down, size: 16, color: foreground),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _PageButton extends StatelessWidget {
   const _PageButton({
     this.label,
@@ -885,8 +753,11 @@ class _EmptyState extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const Icon(Icons.inventory_2_outlined,
-              size: 44, color: AppColors.muted),
+          const Icon(
+            Icons.inventory_2_outlined,
+            size: 44,
+            color: AppColors.muted,
+          ),
           const SizedBox(height: 12),
           Text(
             'No equipment yet',
