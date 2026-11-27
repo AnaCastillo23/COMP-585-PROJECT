@@ -2,54 +2,186 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() {
+
+    function isSignedIn() {
       return request.auth != null;
     }
 
     function isStaff() {
-      return signedIn()
+      return isSignedIn()
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'staff';
     }
 
-    match /users/{uid} {
-      allow read: if signedIn() && (request.auth.uid == uid || isStaff());
-      allow write: if signedIn() && request.auth.uid == uid;
-    }
-
+    // One doc per student ID. Create-only, so an ID can never be reassigned.
     match /studentIds/{studentId} {
-      allow read: if isStaff();
-      allow write: if signedIn()
+      allow create: if isSignedIn()
+        && studentId.matches('[0-9]{9}')
+        && request.resource.data.keys().hasOnly(['uid'])
         && request.resource.data.uid == request.auth.uid;
+      allow read, update, delete: if false;
     }
 
-    match /equipment/{equipmentId} {
-      allow read: if signedIn();
-      allow write: if isStaff();
+    match /users/{userId} {
+      // Users read their own profile; staff can look up any student.
+      allow read: if isSignedIn() && (request.auth.uid == userId || isStaff());
+
+      allow create: if isSignedIn()
+        && request.auth.uid == userId
+        && request.resource.data.role == 'student'
+        && request.resource.data.studentId.matches('[0-9]{9}')
+        && getAfter(/databases/$(database)/documents/studentIds/$(request.resource.data.studentId)).data.uid == userId;
+
+      // Users can't change their own role or ID after signup.
+      allow update: if isSignedIn()
+        && request.auth.uid == userId
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.studentId == resource.data.studentId;
+
+      allow delete: if false;
+    }
+
+    match /equipment/{typeId} {
+      allow read: if isSignedIn();
+      allow create, update: if isStaff()
+        && request.resource.data.name is string
+        && request.resource.data.category in [
+  'Cameras', 'Camera Accessories', 'Accessory Kits',
+  'Audio Equipment', 'Lighting Equipment', 'Tripods',
+  'Green/Black Screens', 'Adapters', 'Sewing/Fiber Crafts',
+  'Virtual Reality', 'Stabilizers', 'Audio', 'Lighting', 'Computers'
+]
+        && (!('imageBase64' in request.resource.data)
+            || request.resource.data.imageBase64.size() < 250000);
+      allow delete: if isStaff();
     }
 
     match /equipmentUnits/{unitId} {
-      allow read: if signedIn();
-      allow write: if isStaff();
+      allow read: if isSignedIn();
+      allow create: if isStaff()
+        && unitId.matches('EQ-[0-9]{4}')
+        && request.resource.data.status in ['available', 'unavailable', 'reserved', 'maintenance']
+        && request.resource.data.equipmentId is string
+        && existsAfter(/databases/$(database)/documents/equipment/$(request.resource.data.equipmentId));
+      allow update: if isStaff()
+        && request.resource.data.status in ['available', 'unavailable', 'reserved', 'maintenance']
+        && request.resource.data.equipmentId == resource.data.equipmentId;
+      allow delete: if isStaff();
     }
 
+    // A loan = one student holding one unit. Active until returnedAt is set.
     match /loans/{loanId} {
+      // Staff see everything; a student sees only their own loans.
       allow read: if isStaff()
-        || (signedIn() && resource.data.studentUid == request.auth.uid);
-      allow write: if isStaff();
+        || (isSignedIn() && resource.data.studentUid == request.auth.uid);
+
+      // Created in the same write that marks the unit unavailable.
+      allow create: if isStaff()
+        && request.resource.data.returnedAt == null
+        && getAfter(/databases/$(database)/documents/equipmentUnits/$(request.resource.data.unitId)).data.status == 'unavailable';
+
+      // The only allowed change: stamping returnedAt on an open loan.
+      allow update: if isStaff()
+        && resource.data.returnedAt == null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['returnedAt']);
+
+      allow delete: if false;
     }
 
-    match /reservations/{reservationId} {
-      allow read: if signedIn();
-      allow write: if signedIn();
+    // Append-only log behind the dashboard's Recent activity table.
+    match /activity/{entryId} {
+      allow read: if isStaff();
+      allow create: if isStaff()
+        && request.resource.data.keys().hasOnly(
+             ['type', 'title', 'detail', 'status', 'unitId', 'at'])
+        && request.resource.data.type in ['Checkout', 'Return', 'Reservation', 'Maintenance']
+        && request.resource.data.at == request.time;
+      allow update, delete: if false;
     }
 
-    match /activity/{activityId} {
-      allow read: if signedIn();
-      allow write: if isStaff();
+    // A 24-hour hold on one unit. Doc ID = unit ID, so only one hold per unit.
+    match /reservations/{unitId} {
+      allow read: if isSignedIn();
+
+      // A student can create a hold only if the unit is available and any
+      // previous hold on it is more than 24 hours old.
+      allow create, update: if isSignedIn()
+        && request.resource.data.keys().hasOnly(
+             ['studentUid', 'equipmentId', 'equipmentName', 'unitId', 'createdAt'])
+        && request.resource.data.studentUid == request.auth.uid
+        && request.resource.data.unitId == unitId
+        && request.resource.data.createdAt == request.time
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'student'
+        && get(/databases/$(database)/documents/equipmentUnits/$(unitId)).data.status == 'available'
+        && (resource == null
+            || resource.data.createdAt + duration.value(24, 'h') <= request.time);
+
+      // The student can cancel their own hold; staff can clear any hold
+      // (this is how a pickup consumes it).
+      allow delete: if isStaff()
+        || (isSignedIn() && resource.data.studentUid == request.auth.uid);
+    }
+      match /waitlist/{entryId} {
+      // Any signed-in user can read, since students need the queue to see
+      // their position.
+      allow read: if isSignedIn();
+
+      // Staff can add any student; students can add only themselves.
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly([
+          'equipmentId',
+          'equipmentName',
+          'studentRefId',
+          'name',
+          'email',
+          'createdAt'
+        ])
+        && request.resource.data.equipmentId is string
+        && request.resource.data.equipmentName is string
+        && request.resource.data.studentRefId is string
+        && request.resource.data.name is string
+        && request.resource.data.email is string
+        && request.resource.data.createdAt == request.time
+        && entryId == (
+          request.resource.data.equipmentId
+          + '_'
+          + request.resource.data.studentRefId
+        )
+        && exists(
+          /databases/$(database)/documents/equipment/$(request.resource.data.equipmentId)
+        )
+        && exists(
+          /databases/$(database)/documents/users/$(request.resource.data.studentRefId)
+        )
+        && (
+          isStaff()
+          || (
+            request.resource.data.studentRefId == request.auth.uid
+            && get(
+              /databases/$(database)/documents/users/$(request.auth.uid)
+            ).data.role == 'student'
+          )
+        );
+
+      // Only staff can modify an existing entry.
+      allow update: if isStaff();
+
+      // Staff can remove any entry; students can remove their own.
+      allow delete: if isStaff()
+        || (
+          isSignedIn()
+          && resource.data.studentRefId == request.auth.uid
+        );
     }
 
-    match /{document=**} {
-      allow read, write: if false;
+    match /equipmentGuides/{equipmentId} {
+      // Students read it at checkout; only staff write it.
+      allow read: if isSignedIn();
+      allow create, update: if isStaff()
+        && request.resource.data.keys().hasOnly(
+             ['careInstructions', 'gettingToKnow', 'updatedAt'])
+        && request.resource.data.careInstructions is string
+        && request.resource.data.gettingToKnow is string;
+      allow delete: if false;
     }
   }
 }
