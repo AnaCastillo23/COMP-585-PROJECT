@@ -27,7 +27,12 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(body: StudentDashboardScreen(onBrowseAll: () {})),
+        home: Scaffold(
+          body: StudentDashboardScreen(
+            onBrowseAll: () {},
+            checkFirstLoginTutorial: false,
+          ),
+        ),
       ),
     );
 
