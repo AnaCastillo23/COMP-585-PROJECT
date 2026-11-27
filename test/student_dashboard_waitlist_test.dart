@@ -19,6 +19,7 @@ void main() {
         home: Scaffold(
           body: StudentDashboardScreen(
             onBrowseAll: () {},
+            checkFirstLoginTutorial: false,
             reservationService: service,
             studentUid: 'student-1',
           ),
