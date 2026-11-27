@@ -95,7 +95,6 @@ final _slides = <_TutorialSlide>[
       child: EquipmentCard(
         equipment: mockEquipment.first,
         onReserve: () {},
-        isFeatured: true,
       ),
     ),
   ),
@@ -755,13 +754,13 @@ class _DashboardPreview extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: const ShapeDecoration(
-                color: AppColors.softActionBackground,
+                color: AppColors.background,
                 shape: StadiumBorder(),
               ),
               child: const Text(
                 'Browse all',
                 style: TextStyle(
-                  color: AppColors.softActionForeground,
+                  color: AppColors.csunRed,
                   fontWeight: FontWeight.w600,
                 ),
               ),
