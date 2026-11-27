@@ -11,6 +11,9 @@ import '../../models/waitlist_entry.dart';
 import '../../services/reservation_service.dart';
 import '../../widgets/equipment_card.dart';
 import '../../widgets/equipment_reservation_flow.dart';
+import '../../services/tutorial_service.dart';
+import 'tutorial_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class StudentDashboardScreen extends StatefulWidget {
   const StudentDashboardScreen({
@@ -18,8 +21,10 @@ class StudentDashboardScreen extends StatefulWidget {
     required this.onBrowseAll,
     this.reservationService,
     this.studentUid = 'prototype-student',
+     this.checkFirstLoginTutorial = true,
   });
 
+  final bool checkFirstLoginTutorial;
   final VoidCallback onBrowseAll;
   final ReservationService? reservationService;
   final String studentUid;
@@ -43,6 +48,8 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
 
     _reservationService.addListener(_handleRequestsChanged);
     unawaited(_loadStudentRequests());
+
+    unawaited(_maybeShowTutorial());
   }
 
   @override
@@ -71,6 +78,23 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
       _reservations = reservations;
       _waitlistEntries = waitlistEntries;
     });
+  }
+
+  Future<void> _maybeShowTutorial() async {
+    if (!widget.checkFirstLoginTutorial) return;
+
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final service = TutorialService();
+    if (await service.hasSeenTutorial(uid)) return;
+    if (!mounted) return;
+
+    // Mark as seen up front so closing it any way (back button, skip) counts.
+    await service.markTutorialSeen(uid);
+    if (!mounted) return;
+
+    await showTutorial(context);
   }
 
   void _requestEquipment(Equipment equipment) {
