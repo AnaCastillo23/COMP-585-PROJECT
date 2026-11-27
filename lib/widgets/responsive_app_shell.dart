@@ -14,6 +14,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/utils/user_display.dart';
 import '../screens/staff/manage_equipment_screen.dart';
 import '../screens/staff/checkout_screen.dart';
+import '../services/equipment_service.dart';
+import '../services/firestore_reservation_service.dart';
 
 class ResponsiveAppShell extends StatefulWidget {
   const ResponsiveAppShell({
@@ -83,9 +85,17 @@ class _ResponsiveAppShellState extends State<ResponsiveAppShell> {
       return switch (_selectedIndex) {
         0 => StudentDashboardScreen(
           onBrowseAll: () => setState(() => _selectedIndex = 1),
+          reservationService: FirestoreReservationService.shared,
         ),
-        1 => const EquipmentCatalogScreen(),
-        2 => const MyRentalsScreen(),
+        1 => EquipmentCatalogScreen(
+          studentUid: FirebaseAuth.instance.currentUser?.uid ?? 'prototype-student',
+          equipmentService: FirestoreEquipmentService(),
+          reservationService: FirestoreReservationService.shared,
+        ),
+        2 => MyRentalsScreen(
+           studentUid: FirebaseAuth.instance.currentUser?.uid ?? 'prototype-student',
+           reservationService: FirestoreReservationService.shared,
+        ),
         _ => const StudentDashboardScreen(onBrowseAll: _noop),
       };
     }

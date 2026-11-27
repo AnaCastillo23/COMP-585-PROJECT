@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../core/theme/app_theme.dart';
 import '../models/user_role.dart';
+import 'student/tutorial_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key, required this.role});
@@ -93,6 +94,12 @@ class ProfileScreen extends StatelessWidget {
                         leading: const Icon(Icons.badge_outlined),
                         title: const Text('CSUN ID'),
                         subtitle: Text(_maskedId(studentId)),
+                      ),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: () => showTutorial(context),
+                        icon: const Icon(Icons.school_outlined),
+                        label: const Text('Replay tutorial'),
                       ),
                     ],
                   ],
